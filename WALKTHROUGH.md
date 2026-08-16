@@ -4,7 +4,7 @@
 YouTube Music için tür bazlı RAW playlistler oluşturan bir otomasyon sistemi. Amaç, sanatçıların albüm ve single kataloglarını hızlıca playlistlere eklemek ve sonrasında YouTube Music içinde manuel eleme yaparak telefona indirmektir.
 
 ## Current State
-Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log katmanları hazır. Çekirdek katalog işleme ile birlikte ağsız test kapsamı 18 teste ulaştı. `ytmusicapi` adapter’ı, playlist yazma ve CLI henüz eklenmedi.
+Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log katmanları hazır. `ytmusicapi` adaptörü ve albüm/single katalog dönüşümü eklendi; ağsız test kapsamı 22 teste ulaştı. Playlist yazma ve CLI henüz eklenmedi.
 
 ## Important Decisions
 - Script yalnızca YouTube Music playlistlerini oluşturur ve düzenler; telefona indirme resmi YouTube Music uygulamasında yapılır.
@@ -21,6 +21,33 @@ Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log katmanları
 ---
 
 ## History
+
+### 2026-08-17T02:10+03:00
+
+#### Task
+`ytmusicapi` için küçük bir API sınırı ve sanatçı katalog toplama katmanı eklemek.
+
+#### Summary
+Sanatçı adını exact eşleşmeyle kanal ID'sine çözümleyen, sanatçının albüm ve single bölümlerinden tam release listesini alan ve albüm parçalarını `Track` modeline dönüştüren adaptör eklendi. `ytmusicapi` importu canlı erişim kurulana kadar erteleniyor; unit testler sahte istemciyle ağsız çalışıyor.
+
+#### Affected Files
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/catalog.py`
+- `src/playlist_builder/__init__.py`
+- `state/.gitkeep`
+- `tests/test_ytmusic.py`
+- `tests/test_catalog.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Yanlış sanatçı seçme riskini azaltmak için yalnızca exact normalize edilmiş isim eşleşmesi kabul ediliyor; sıfır veya birden fazla eşleşme hata veriyor.
+- Albüm ve single release'leri `get_artist_albums(..., limit=None)` ile alınmaya çalışılıyor; release ID'leri tekrardan arındırılıyor.
+- Albüm içindeki API parça sırası korunuyor; global sıralama sonraki processing katmanında uygulanıyor.
+- Paket sürümü bu commit ile `0.0.4` olarak hizalandı.
+
+#### Notes
+- Verification: `python -m pytest --basetemp=work/pytest-tmp` → `22 passed`.
+- Canlı YouTube Music çağrısı ve `ytmusicapi` kurulumu bu adımda yapılmadı.
 
 ### 2026-08-17T02:02+03:00
 
