@@ -1,0 +1,13 @@
+auth_file: auth/oauth.json
+
+playlist:
+  privacy: PRIVATE
+  max_tracks: 550
+  update_mode: append_only
+
+filters:
+  exclude_live: false
+  exclude_remix: false
+  exclude_remaster: false
+  exclude_deluxe: false
+  exclude_karaoke: true
