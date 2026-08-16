@@ -3,7 +3,7 @@ from __future__ import annotations
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 class YtMusicError(RuntimeError):
@@ -44,6 +44,15 @@ class YtMusicAdapter:
     def __init__(self, client: Any) -> None:
         self.client = client
 
+    @staticmethod
+    def _call(operation: str, callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        try:
+            return callback(*args, **kwargs)
+        except YtMusicError:
+            raise
+        except Exception as error:
+            raise YtMusicError(f"{operation} failed: {error}") from error
+
     @classmethod
     def from_auth(cls, auth_file: Path | None = None) -> "YtMusicAdapter":
         try:
@@ -57,7 +66,13 @@ class YtMusicAdapter:
         return cls(client)
 
     def resolve_artist(self, name: str) -> ArtistReference:
-        results = self.client.search(name, filter="artists", limit=10)
+        results = self._call(
+            "Artist search",
+            self.client.search,
+            name,
+            filter="artists",
+            limit=10,
+        )
         exact_matches: dict[str, ArtistReference] = {}
         for result in results:
             if not isinstance(result, dict):
@@ -79,7 +94,9 @@ class YtMusicAdapter:
         return next(iter(exact_matches.values()))
 
     def list_releases(self, artist: ArtistReference) -> list[dict[str, Any]]:
-        artist_page = self.client.get_artist(artist.channel_id)
+        artist_page = self._call("Artist lookup", self.client.get_artist, artist.channel_id)
+        if not isinstance(artist_page, dict):
+            raise YtMusicError(f"Invalid artist response for: {artist.channel_id}")
         releases: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
 
@@ -90,7 +107,9 @@ class YtMusicAdapter:
             params = section.get("params")
             if isinstance(params, str) and params:
                 section_id = section.get("browseId") or artist.channel_id
-                section_releases = self.client.get_artist_albums(
+                section_releases = self._call(
+                    "Release lookup",
+                    self.client.get_artist_albums,
                     section_id,
                     params,
                     limit=None,
@@ -111,7 +130,68 @@ class YtMusicAdapter:
         return releases
 
     def get_album(self, browse_id: str) -> dict[str, Any]:
-        album = self.client.get_album(browse_id)
+        album = self._call("Album lookup", self.client.get_album, browse_id)
         if not isinstance(album, dict):
             raise YtMusicError(f"Invalid album response for: {browse_id}")
         return album
+
+    def list_playlists(self) -> list[dict[str, Any]]:
+        playlists = self._call(
+            "Playlist list lookup",
+            self.client.get_library_playlists,
+            limit=None,
+        )
+        if not isinstance(playlists, list):
+            raise YtMusicError("Invalid playlist list response")
+        return [playlist for playlist in playlists if isinstance(playlist, dict)]
+
+    def get_playlist_video_ids(self, playlist_id: str) -> list[str]:
+        playlist = self._call(
+            "Playlist lookup",
+            self.client.get_playlist,
+            playlist_id,
+            limit=None,
+        )
+        if not isinstance(playlist, dict):
+            raise YtMusicError(f"Invalid playlist response for: {playlist_id}")
+        tracks = playlist.get("tracks", [])
+        if not isinstance(tracks, list):
+            return []
+        return [
+            video_id
+            for track in tracks
+            if isinstance(track, dict)
+            for video_id in [track.get("videoId")]
+            if isinstance(video_id, str) and video_id
+        ]
+
+    def create_playlist(
+        self,
+        title: str,
+        description: str,
+        privacy: str,
+        video_ids: list[str],
+    ) -> str:
+        result = self._call(
+            "Playlist creation",
+            self.client.create_playlist,
+            title,
+            description,
+            privacy_status=privacy,
+            video_ids=video_ids or None,
+        )
+        if not isinstance(result, str) or not result:
+            raise YtMusicError(f"Playlist creation failed for: {title}")
+        return result
+
+    def add_playlist_items(self, playlist_id: str, video_ids: list[str]) -> Any:
+        result = self._call(
+            "Playlist update",
+            self.client.add_playlist_items,
+            playlist_id,
+            videoIds=video_ids,
+            duplicates=False,
+        )
+        if isinstance(result, dict) and result.get("error"):
+            raise YtMusicError(f"Could not add items to playlist: {playlist_id}")
+        return result

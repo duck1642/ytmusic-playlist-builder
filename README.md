@@ -1,6 +1,6 @@
 # YouTube Music Playlist Builder
 
-Sanatçı listelerinden düzenli RAW YouTube Music playlistleri oluşturmak için hazırlanacak kişisel otomasyon projesi.
+Sanatçı listelerinden düzenli RAW YouTube Music playlistleri oluşturmak için hazırlanmış kişisel otomasyon projesi.
 
 Akış:
 
@@ -10,6 +10,19 @@ Sanatçıları ekle → Albüm/single kataloglarını al → Filtrele ve sırala
 ```
 
 İlk sürüm yalnızca playlist oluşturma ve organize etme işine odaklanır. Telefon indirmeleri YouTube Music uygulamasından yapılır.
+
+## Kullanım
+
+1. `requirements.txt` içindeki bağımlılıkları kurun.
+2. `config.example.yaml` dosyasını `config.yaml` olarak kopyalayın.
+3. `artists/*.txt` dosyalarına her satıra bir sanatçı gelecek şekilde isimleri yazın.
+4. `auth/oauth.json` dosyasını [ytmusicapi authentication](https://ytmusicapi.readthedocs.io/en/stable/setup/authentication.html) yönergelerine göre hazırlayın.
+5. Önce planı kontrol edin: `python build_playlists.py --dry-run`.
+6. Playlistleri oluşturun/güncelleyin: `python build_playlists.py`.
+
+Tekrar çalıştırmak güvenlidir. `append_only` modu yeni parçaları ekler; YouTube Music'te manuel sildiğiniz parçaları state üzerinden geri eklemez. `state/build_state.json` çalışma durumunu, `logs/build.jsonl` olayları tutar; bu dosyalar Git'e alınmaz.
+
+Test: `python -m pytest --basetemp=work/pytest-tmp`.
 
 ## Dizinler
 

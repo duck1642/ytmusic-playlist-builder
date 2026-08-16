@@ -4,7 +4,7 @@
 YouTube Music için tür bazlı RAW playlistler oluşturan bir otomasyon sistemi. Amaç, sanatçıların albüm ve single kataloglarını hızlıca playlistlere eklemek ve sonrasında YouTube Music içinde manuel eleme yaparak telefona indirmektir.
 
 ## Current State
-Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log katmanları hazır. `ytmusicapi` adaptörü ve albüm/single katalog dönüşümü eklendi; ağsız test kapsamı 22 teste ulaştı. Playlist yazma ve CLI henüz eklenmedi.
+Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicapi` adaptörü, katalog dönüşümü, append-only playlist yazma ve minimal CLI hazır. Ağsız test kapsamı 25 teste ulaştı. Canlı hesap/auth smoke testi henüz yapılmadı.
 
 ## Important Decisions
 - Script yalnızca YouTube Music playlistlerini oluşturur ve düzenler; telefona indirme resmi YouTube Music uygulamasında yapılır.
@@ -21,6 +21,35 @@ Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log katmanları
 ---
 
 ## History
+
+### 2026-08-17T02:17+03:00
+
+#### Task
+RAW playlist oluşturma/güncelleme akışını ve kullanılabilir minimal CLI'yi tamamlamak.
+
+#### Summary
+Playlist writer; mevcut playlist'i başlıkla buluyor, yoksa oluşturuyor, varsa yalnızca yeni video ID'lerini ekliyor. Önceki state'te üretilmiş olup YouTube Music'te manuel silinen parçalar `removed_video_ids` içinde tutuluyor ve tekrar eklenmiyor. Tür başına 550 parçalık chunk'lar için `GENRE - RAW` ve gerektiğinde numaralı playlist adları kullanılıyor. `build_playlists.py` üzerinden config, artist listeleri, katalog işleme, playlist güncelleme, state ve JSONL log akışı bağlandı.
+
+#### Affected Files
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/playlists.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/__init__.py`
+- `build_playlists.py`
+- `tests/test_playlists.py`
+- `README.md`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Playlist yazma için `ytmusicapi`nin `get_library_playlists`, `get_playlist`, `create_playlist` ve `add_playlist_items` çağrıları adaptörün arkasında tutuluyor.
+- Reconcile/silme/move davranışı eklenmedi; manuel eleme append-only state ile korunuyor.
+- CLI yalnızca gerekli `--config` ve `--dry-run` seçeneklerini sunuyor; tekrar çalıştırma zaten idempotent/append-only akışla yapılabiliyor.
+- Paket sürümü bu commit ile `0.0.5` olarak hizalandı.
+
+#### Notes
+- Verification: `python -m pytest --basetemp=work/pytest-tmp` → `25 passed`.
+- Verification: `python build_playlists.py --help` başarılı.
+- Canlı çağrı denemesi yapılmadı; mevcut çalışma ortamında `ytmusicapi` kurulu değil ve auth dosyası yok. Kontrollü hata mesajı doğrulandı.
 
 ### 2026-08-17T02:10+03:00
 
