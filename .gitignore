@@ -28,6 +28,9 @@ headers*.json
 *token*.json
 *.token
 
+# Local configuration
+config.yaml
+
 # Generated project data
 state/*
 !state/.gitkeep
