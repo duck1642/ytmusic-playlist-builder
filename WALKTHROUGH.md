@@ -4,7 +4,7 @@
 YouTube Music için tür bazlı RAW playlistler oluşturan bir otomasyon sistemi. Amaç, sanatçıların albüm ve single kataloglarını hızlıca playlistlere eklemek ve sonrasında YouTube Music içinde manuel eleme yaparak telefona indirmektir.
 
 ## Current State
-Henüz uygulama kodu oluşturulmadı. Proje kapsamı ve temel akış tanımlandı; ilk sürüm yalnızca playlist oluşturma ve organize etme işine odaklanacak.
+Uygulama kodu henüz oluşturulmadı. MVP iskeleti, Git deposu ve ilk commit hazır; ilk sürüm yalnızca playlist oluşturma ve organize etme işine odaklanacak.
 
 ## Important Decisions
 - Script yalnızca YouTube Music playlistlerini oluşturur ve düzenler; telefona indirme resmi YouTube Music uygulamasında yapılır.
@@ -18,6 +18,37 @@ Henüz uygulama kodu oluşturulmadı. Proje kapsamı ve temel akış tanımland�
 ---
 
 ## History
+
+### 2026-08-17T01:41+03:00
+
+#### Task
+Proje altyapısını, Git deposunu ve başlangıç dosya yapısını hazırlamak.
+
+#### Summary
+Python/ytmusicapi tabanlı MVP için klasör yapısı, örnek config, bağımlılık listesi, README ve Git ignore kuralları oluşturuldu. Git deposu `main` dalında başlatıldı ve initial commit yapıldı.
+
+#### Affected Files
+- `.gitignore`
+- `README.md`
+- `config.example.yaml`
+- `requirements.txt`
+- `artists/*.txt`
+- `src/.gitkeep`
+- `tests/.gitkeep`
+- `state/.gitkeep`
+- `cache/.gitkeep`
+- `logs/.gitkeep`
+- `docs/.gitkeep`
+- `.git/`
+
+#### Decisions
+- Proje yerel çalışan bir CLI uygulaması olarak başlayacak; sunucu ve veritabanı kullanılmayacak.
+- Sonraki güncellemelerde `append_only` yaklaşımı kullanılacak.
+- Auth, state, cache, log ve Codex çalışma dosyaları Git dışında tutulacak.
+
+#### Notes
+- Initial commit: `10f66d7 chore: initialize playlist builder project`
+- Uygulama kodu ve testler henüz yazılmadı.
 
 ### 2026-08-17T01:26+03:00
 
