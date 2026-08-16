@@ -4,7 +4,7 @@
 YouTube Music için tür bazlı RAW playlistler oluşturan bir otomasyon sistemi. Amaç, sanatçıların albüm ve single kataloglarını hızlıca playlistlere eklemek ve sonrasında YouTube Music içinde manuel eleme yaparak telefona indirmektir.
 
 ## Current State
-Uygulama kodu henüz oluşturulmadı. MVP iskeleti, Git deposu ve ilk commit hazır; ilk sürüm yalnızca playlist oluşturma ve organize etme işine odaklanacak.
+Çekirdek katalog işleme kodu hazır. Sıralama, basit filtreleme, exact `videoId` duplicate temizliği ve playlist bölme ağ bağlantısı olmadan test ediliyor. `ytmusicapi` adapter’ı, state yönetimi ve CLI henüz eklenmedi.
 
 ## Important Decisions
 - Script yalnızca YouTube Music playlistlerini oluşturur ve düzenler; telefona indirme resmi YouTube Music uygulamasında yapılır.
@@ -13,11 +13,38 @@ Uygulama kodu henüz oluşturulmadı. MVP iskeleti, Git deposu ve ilk commit haz
 - Sıralama: sanatçı alfabetik, albüm eskiden yeniye, parça albümdeki orijinal sıra.
 - Türler gereksiz şekilde bölünmez; yaklaşık 500–600 parçayı aşan listeler bölünür.
 - İlk sürümde filtreleme deterministik ve isteğe bağlı olur; live, remix, karaoke gibi sürümler başlık kurallarıyla filtrelenebilir.
+- Duplicate temizliğinin varsayılan seviyesi exact `videoId` eşleşmesidir; farklı sürümler için canonical eşleştirme yapılmaz.
+- Çekirdek katalog işleme mantığı dış API’den bağımsız tutulur ve ağsız unit testlerle doğrulanır.
 - Planlanan teknoloji Python ve `ytmusicapi`dir.
 
 ---
 
 ## History
+
+### 2026-08-17T01:58+03:00
+
+#### Task
+İlk kod sürümünü, saf katalog işleme mantığıyla başlatmak.
+
+#### Summary
+`Track` ve filtre config modelleri ile sanatçı/albüm/parça sıralama, başlık/albüm bazlı isteğe bağlı filtreleme, exact `videoId` duplicate temizliği ve max parça sayısına göre bölme fonksiyonları eklendi. Ağsız pytest kapsamı 7 test ve tamamı başarılı.
+
+#### Affected Files
+- `pyproject.toml`
+- `src/playlist_builder/__init__.py`
+- `src/playlist_builder/models.py`
+- `src/playlist_builder/processing.py`
+- `tests/test_processing.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- İlk implementasyon sürümü `v0.0.2` olarak belirlendi; mevcut iskelet `v0.0.1` başlangıcıdır.
+- Track sırası; sanatçı, release tarihi/yılı, albüm ve track number üzerinden deterministik üretilir.
+- Track number yoksa albümden gelen giriş sırası korunur.
+
+#### Notes
+- Verification: `python -m pytest` → `7 passed`.
+- Henüz gerçek YouTube Music isteği yapılmadı.
 
 ### 2026-08-17T01:41+03:00
 
