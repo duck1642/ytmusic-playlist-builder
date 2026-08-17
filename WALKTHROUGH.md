@@ -4,7 +4,7 @@
 YouTube Music için tür bazlı RAW playlistler oluşturan bir otomasyon sistemi. Amaç, sanatçıların albüm ve single kataloglarını hızlıca playlistlere eklemek ve sonrasında YouTube Music içinde manuel eleme yaparak telefona indirmektir.
 
 ## Current State
-Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicapi` adaptörü, katalog dönüşümü, append-only playlist yazma ve minimal CLI hazır. Ağsız test kapsamı 25 teste ulaştı. Canlı hesap/auth smoke testi henüz yapılmadı.
+Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicapi` adaptörü, katalog dönüşümü, append-only playlist yazma, minimal CLI ve küçük interaktif TUI hazır. Ağsız test kapsamı 27 teste ulaştı. Canlı hesap/auth smoke testi henüz yapılmadı.
 
 ## Important Decisions
 - Script yalnızca YouTube Music playlistlerini oluşturur ve düzenler; telefona indirme resmi YouTube Music uygulamasında yapılır.
@@ -21,6 +21,33 @@ Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicap
 ---
 
 ## History
+
+### 2026-08-17T11:04+03:00
+
+#### Task
+CLI komutunu her seferinde yazma ihtiyacını azaltacak küçük bir terminal menüsü eklemek.
+
+#### Summary
+`--tui` seçeneği ve Windows'ta çift tıklanabilir `run.bat` giriş noktası eklendi. Menü dry-run planını gösterme, playlist oluşturma/güncelleme ve çıkış seçeneklerini sunuyor. Harici TUI kütüphanesi eklenmedi; standart input/output ile çalışıyor.
+
+#### Affected Files
+- `src/playlist_builder/tui.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/__init__.py`
+- `build_playlists.py`
+- `run.bat`
+- `tests/test_tui.py`
+- `README.md`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Mevcut doğrudan CLI davranışı korunuyor; TUI ayrı olarak `--tui` ile açılıyor.
+- Menü test edilebilirlik için çalıştırma fonksiyonunu dependency injection ile alıyor; testler ağ çağrısı yapmıyor.
+- Paket sürümü bu commit ile `0.0.6` olarak hizalandı.
+
+#### Notes
+- Verification: `python -m pytest --basetemp=work/pytest-tmp` → `27 passed`.
+- Verification: `python build_playlists.py --help` içinde `--tui` görünüyor.
 
 ### 2026-08-17T02:17+03:00
 

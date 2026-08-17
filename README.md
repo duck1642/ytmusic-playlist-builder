@@ -20,6 +20,8 @@ Sanatçıları ekle → Albüm/single kataloglarını al → Filtrele ve sırala
 5. Önce planı kontrol edin: `python build_playlists.py --dry-run`.
 6. Playlistleri oluşturun/güncelleyin: `python build_playlists.py`.
 
+Menüyle kullanmak için Windows'ta `run.bat` dosyasına çift tıklayın. Terminalden aynı menü `python build_playlists.py --tui` ile açılır.
+
 Tekrar çalıştırmak güvenlidir. `append_only` modu yeni parçaları ekler; YouTube Music'te manuel sildiğiniz parçaları state üzerinden geri eklemez. `state/build_state.json` çalışma durumunu, `logs/build.jsonl` olayları tutar; bu dosyalar Git'e alınmaz.
 
 Test: `python -m pytest --basetemp=work/pytest-tmp`.

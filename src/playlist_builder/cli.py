@@ -111,12 +111,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Read and plan changes without creating or updating playlists",
     )
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="Open the interactive terminal menu",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.tui:
+            from .tui import run_tui
+
+            return run_tui(args.config)
         return run(args.config, dry_run=args.dry_run)
     except (ConfigError, StateError, YtMusicError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)
