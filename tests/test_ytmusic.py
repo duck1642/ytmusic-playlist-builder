@@ -1,4 +1,5 @@
 import pytest
+import ytmusicapi
 
 from playlist_builder.ytmusic import ArtistReference, YtMusicAdapter, YtMusicError
 
@@ -65,3 +66,27 @@ def test_list_releases_fetches_full_album_and_single_sections() -> None:
         ("get_artist_albums", "UC-GOJIRA", "albums-params", None),
         ("get_artist_albums", "UC-GOJIRA", "singles-params", None),
     ]
+
+
+def test_from_auth_passes_oauth_credentials(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    auth_file = tmp_path / "oauth.json"
+    client_file = tmp_path / "client_secret.json"
+    auth_file.write_text("{}", encoding="utf-8")
+    client_file.write_text(
+        '{"installed": {"client_id": "client-id", "client_secret": "client-secret"}}',
+        encoding="utf-8",
+    )
+    calls: list[tuple[object, ...]] = []
+
+    class FakeYTMusic:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            calls.append((args, kwargs))
+
+    monkeypatch.setattr(ytmusicapi, "YTMusic", FakeYTMusic)
+
+    YtMusicAdapter.from_auth(auth_file, oauth_client_file=client_file)
+
+    assert calls[0][0] == (str(auth_file),)
+    credentials = calls[0][1]["oauth_credentials"]
+    assert credentials.client_id == "client-id"
+    assert credentials.client_secret == "client-secret"

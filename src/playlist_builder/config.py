@@ -23,6 +23,7 @@ class PlaylistConfig:
 @dataclass(frozen=True, slots=True)
 class AppConfig:
     auth_file: Path | None
+    oauth_client_file: Path | None
     artists_dir: Path
     state_dir: Path
     cache_dir: Path
@@ -97,6 +98,11 @@ def load_config(path: Path) -> AppConfig:
     )
     return AppConfig(
         auth_file=_optional_path(base_dir, raw.get("auth_file"), "auth_file"),
+        oauth_client_file=_optional_path(
+            base_dir,
+            raw.get("oauth_client_file", "auth/client_secret.json"),
+            "oauth_client_file",
+        ),
         artists_dir=_relative_path(base_dir, raw.get("artists_dir", "artists"), "artists_dir"),
         state_dir=_relative_path(base_dir, raw.get("state_dir", "state"), "state_dir"),
         cache_dir=_relative_path(base_dir, raw.get("cache_dir", "cache"), "cache_dir"),

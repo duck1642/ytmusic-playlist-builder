@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from .auth import AuthError, setup_oauth as create_oauth_file
 from .artists import read_artist_lists
 from .catalog import CatalogCollector
 from .config import ConfigError, load_config
@@ -42,7 +43,10 @@ def run(config_path: Path, *, dry_run: bool = False) -> int:
     state_path = config.state_dir / "build_state.json"
     log_path = config.logs_dir / "build.jsonl"
     state = load_state(state_path)
-    api = YtMusicAdapter.from_auth(config.auth_file)
+    api = YtMusicAdapter.from_auth(
+        config.auth_file,
+        oauth_client_file=config.oauth_client_file,
+    )
     collector = CatalogCollector(api)
     writer = PlaylistWriter(api)
     errors = 0
@@ -98,6 +102,18 @@ def run(config_path: Path, *, dry_run: bool = False) -> int:
     return 1 if errors else 0
 
 
+def setup_oauth(config_path: Path) -> int:
+    config = load_config(config_path)
+    if config.auth_file is None:
+        raise ConfigError("auth_file is required for OAuth setup")
+    if config.oauth_client_file is None:
+        raise ConfigError("oauth_client_file is required for OAuth setup")
+
+    auth_file = create_oauth_file(config.oauth_client_file, config.auth_file)
+    print(f"OAuth tamamlandı: {auth_file}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build YouTube Music RAW playlists.")
     parser.add_argument(
@@ -116,17 +132,24 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Open the interactive terminal menu",
     )
+    parser.add_argument(
+        "--setup-oauth",
+        action="store_true",
+        help="Create the local YouTube Music OAuth token",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.setup_oauth:
+            return setup_oauth(args.config)
         if args.tui:
             from .tui import run_tui
 
             return run_tui(args.config)
         return run(args.config, dry_run=args.dry_run)
-    except (ConfigError, StateError, YtMusicError, OSError) as error:
+    except (AuthError, ConfigError, StateError, YtMusicError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2

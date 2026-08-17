@@ -16,11 +16,12 @@ Sanatçıları ekle → Albüm/single kataloglarını al → Filtrele ve sırala
 1. `requirements.txt` içindeki bağımlılıkları kurun.
 2. `config.example.yaml` dosyasını `config.yaml` olarak kopyalayın.
 3. `artists/*.txt` dosyalarına her satıra bir sanatçı gelecek şekilde isimleri yazın.
-4. `auth/oauth.json` dosyasını [ytmusicapi authentication](https://ytmusicapi.readthedocs.io/en/stable/setup/authentication.html) yönergelerine göre hazırlayın.
-5. Önce planı kontrol edin: `.venv\Scripts\python.exe build_playlists.py --dry-run`.
-6. Playlistleri oluşturun/güncelleyin: `.venv\Scripts\python.exe build_playlists.py`.
+4. Google Cloud'dan indirdiğiniz OAuth client JSON dosyasını `auth/client_secret.json` olarak kaydedin.
+5. OAuth tokenını oluşturun: `.venv\Scripts\python.exe build_playlists.py --setup-oauth`.
+6. Önce planı kontrol edin: `.venv\Scripts\python.exe build_playlists.py --dry-run`.
+7. Playlistleri oluşturun/güncelleyin: `.venv\Scripts\python.exe build_playlists.py`.
 
-Menüyle kullanmak için Windows'ta `run.bat` dosyasına çift tıklayın. Terminalden aynı menü `.venv\Scripts\python.exe build_playlists.py --tui` ile açılır.
+Menüyle kullanmak için Windows'ta `run.bat` dosyasına çift tıklayın. Menü OAuth kurulumu, dry-run ve playlist oluşturma seçeneklerini sunar. Terminalden aynı menü `.venv\Scripts\python.exe build_playlists.py --tui` ile açılır.
 
 Tekrar çalıştırmak güvenlidir. `append_only` modu yeni parçaları ekler; YouTube Music'te manuel sildiğiniz parçaları state üzerinden geri eklemez. `state/build_state.json` çalışma durumunu, `logs/build.jsonl` olayları tutar; bu dosyalar Git'e alınmaz.
 

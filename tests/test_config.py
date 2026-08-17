@@ -25,6 +25,7 @@ filters:
 
     assert config.artists_dir == tmp_path / "artists"
     assert config.auth_file == tmp_path / "auth" / "oauth.json"
+    assert config.oauth_client_file == tmp_path / "auth" / "client_secret.json"
     assert config.playlist.max_tracks == 25
     assert config.filters.exclude_karaoke is True
 

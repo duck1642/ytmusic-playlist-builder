@@ -253,3 +253,35 @@ Proje, yalnızca sanatçı kataloglarından düzenli RAW YouTube Music playlistl
 #### Notes
 - Workspace’te henüz uygulama kodu bulunmuyor.
 - Sonraki adım, sade MVP için dosya yapısını ve kabul kriterlerini kesinleştirmek.
+
+### 2026-08-17T11:55+03:00
+
+#### Task
+OAuth kimlik doğrulamasını ve TUI üzerinden tek seferlik kurulum akışını eklemek.
+
+#### Summary
+Google OAuth client JSON dosyasından istemci bilgilerini okuyup `ytmusicapi` OAuth device flow ile yerel token oluşturma desteği eklendi. TUI'a OAuth kurulumu seçeneği, CLI'a `--setup-oauth` seçeneği eklendi. Playlist erişiminde OAuth credentials artık `YTMusic` istemcisine aktarılıyor.
+
+#### Affected Files
+- `src/playlist_builder/auth.py`
+- `src/playlist_builder/config.py`
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/tui.py`
+- `config.example.yaml`
+- `README.md`
+- `tests/test_auth.py`
+- `tests/test_config.py`
+- `tests/test_tui.py`
+- `tests/test_ytmusic.py`
+- Git dışı yerel `config.yaml`
+
+#### Decisions
+- OAuth client dosyası `auth/client_secret.json`, ytmusicapi token dosyası `auth/oauth.json` olarak tutulacak; `auth/` Git dışında kalacak.
+- OAuth credentials verilmezse mevcut auth-file-only adapter davranışı korunacak.
+- Paket sürümü bu commit ile `0.0.9` olarak hizalanacak.
+
+#### Notes
+- Verification: `.venv` içinden `pytest` → `31 passed`.
+- Verification: `compileall`, CLI help ve Windows launcher TUI çıkışı başarılı.
+- Canlı OAuth akışı henüz çalıştırılmadı; `auth/client_secret.json` henüz kullanıcı tarafından eklenmedi.

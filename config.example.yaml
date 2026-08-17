@@ -1,4 +1,5 @@
 auth_file: auth/oauth.json
+oauth_client_file: auth/client_secret.json
 artists_dir: artists
 state_dir: state
 cache_dir: cache
