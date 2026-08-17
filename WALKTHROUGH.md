@@ -4,7 +4,7 @@
 YouTube Music için tür bazlı RAW playlistler oluşturan bir otomasyon sistemi. Amaç, sanatçıların albüm ve single kataloglarını hızlıca playlistlere eklemek ve sonrasında YouTube Music içinde manuel eleme yaparak telefona indirmektir.
 
 ## Current State
-Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicapi` adaptörü, katalog dönüşümü, append-only playlist yazma, minimal CLI ve küçük interaktif TUI hazır. Proje içi `.venv`, `ytmusicapi`/`PyYAML` bağımlılıkları ve Git dışı `config.yaml` hazır. OAuth dosyası ve canlı hesap/auth smoke testi henüz yapılmadı.
+Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicapi` adaptörü, katalog dönüşümü, append-only playlist yazma, minimal CLI ve küçük interaktif TUI hazır. Proje içi `.venv`, `ytmusicapi`/`PyYAML` bağımlılıkları ve Git dışı `config.yaml` hazır. Windows launcher `.venv` Python'unu kullanıyor. OAuth dosyası ve canlı hesap/auth smoke testi henüz yapılmadı.
 
 ## Important Decisions
 - Script yalnızca YouTube Music playlistlerini oluşturur ve düzenler; telefona indirme resmi YouTube Music uygulamasında yapılır.
@@ -21,6 +21,27 @@ Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicap
 ---
 
 ## History
+
+### 2026-08-17T11:45+03:00
+
+#### Task
+Windows launcher'ın proje içindeki sanal ortamı kullanmasını sağlamak.
+
+#### Summary
+`run.bat`, UTF-8 kod sayfasını ve Python UTF-8 modunu ayarlayıp `.venv\Scripts\python.exe` varsa onu kullanacak şekilde güncellendi; böylece çift tıklamayla açılan TUI Türkçe menüyü doğru gösteriyor ve kurulan bağımlılıkları buluyor. Komut satırı kullanım örnekleri de sanal ortam Python'una göre güncellendi.
+
+#### Affected Files
+- `run.bat`
+- `README.md`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Sistem Python'unu değiştirmek yerine proje içi `.venv` kullanılmaya devam ediyor.
+- Paket sürümü bu düzeltme commit'i ile `0.0.8` olarak hizalandı.
+
+#### Notes
+- Verification: `.venv\Scripts\python.exe` mevcut ve `ytmusicapi 1.12.2`/`PyYAML 6.0.3` kurulu.
 
 ### 2026-08-17T11:43+03:00
 
