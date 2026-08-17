@@ -4,7 +4,7 @@
 YouTube Music için tür bazlı RAW playlistler oluşturan bir otomasyon sistemi. Amaç, sanatçıların albüm ve single kataloglarını hızlıca playlistlere eklemek ve sonrasında YouTube Music içinde manuel eleme yaparak telefona indirmektir.
 
 ## Current State
-Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicapi` adaptörü, katalog dönüşümü, append-only playlist yazma, minimal CLI ve küçük interaktif TUI hazır. Ağsız test kapsamı 27 teste ulaştı. Canlı hesap/auth smoke testi henüz yapılmadı.
+Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicapi` adaptörü, katalog dönüşümü, append-only playlist yazma, minimal CLI ve küçük interaktif TUI hazır. Proje içi `.venv`, `ytmusicapi`/`PyYAML` bağımlılıkları ve Git dışı `config.yaml` hazır. OAuth dosyası ve canlı hesap/auth smoke testi henüz yapılmadı.
 
 ## Important Decisions
 - Script yalnızca YouTube Music playlistlerini oluşturur ve düzenler; telefona indirme resmi YouTube Music uygulamasında yapılır.
@@ -21,6 +21,29 @@ Yerel config, sanatçı listesi okuma, JSON state ve JSONL event log, `ytmusicap
 ---
 
 ## History
+
+### 2026-08-17T11:43+03:00
+
+#### Task
+İlk canlı deneme öncesi yerel Python ortamını ve config dosyasını hazırlamak.
+
+#### Summary
+Proje içinde `.venv` oluşturuldu ve `requirements.txt` kuruldu. Kurulu sürümler `ytmusicapi 1.12.2` ve `PyYAML 6.0.3`. `config.example.yaml` temel alınarak Git dışında tutulacak `config.yaml` oluşturuldu. OAuth dosyası oluşturulmadı.
+
+#### Affected Files
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+- Git dışı `config.yaml`
+- Git dışı `.venv/`
+
+#### Decisions
+- Bağımlılıklar sistem Python'una değil, proje içindeki `.venv` ortamına kuruldu.
+- Yerel config ve auth verileri Git'e alınmayacak.
+- Paket sürümü bu hazırlık commit'i ile `0.0.7` olarak hizalandı.
+
+#### Notes
+- Verification: `.venv` içinden `ytmusicapi 1.12.2`, `PyYAML 6.0.3` import edildi.
+- Verification: `config.yaml` başarıyla yüklendi; `max_tracks=550` ve `auth/oauth.json` yolu doğrulandı.
 
 ### 2026-08-17T11:04+03:00
 
