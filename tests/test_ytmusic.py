@@ -90,3 +90,4 @@ def test_from_auth_passes_oauth_credentials(monkeypatch: pytest.MonkeyPatch, tmp
     credentials = calls[0][1]["oauth_credentials"]
     assert credentials.client_id == "client-id"
     assert credentials.client_secret == "client-secret"
+    assert calls[0][1]["requests_session"] is credentials._session

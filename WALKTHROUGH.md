@@ -285,3 +285,29 @@ Google OAuth client JSON dosyasından istemci bilgilerini okuyup `ytmusicapi` OA
 - Verification: `.venv` içinden `pytest` → `31 passed`.
 - Verification: `compileall`, CLI help ve Windows launcher TUI çıkışı başarılı.
 - Canlı OAuth akışı henüz çalıştırılmadı; `auth/client_secret.json` henüz kullanıcı tarafından eklenmedi.
+
+### 2026-08-19T02:54+03:00
+
+#### Task
+OAuth kurulumu sırasında YouTube TLS bağlantısında oluşan `INVALID_SESSION_ID` hatasını gidermek.
+
+#### Summary
+Teşhis sırasında Python/requests ve Windows curl bağlantılarının YouTube TLS handshake aşamasında başarısız olduğu, aynı YouTube endpoint'inin TLS 1.2 ile başarılı HTTP yanıtı verdiği görüldü. OAuth kurulumu ve YouTube Music istemcisi için sertifika doğrulamasını koruyan TLS 1.2 requests session eklendi.
+
+#### Affected Files
+- `src/playlist_builder/network.py`
+- `src/playlist_builder/auth.py`
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_network.py`
+- `tests/test_auth.py`
+- `tests/test_ytmusic.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- TLS doğrulaması kapatılmayacak; yalnızca bu ortamda sorun çıkaran TLS 1.3 yerine TLS 1.2 zorlanacak.
+- Paket sürümü bu düzeltme commit'i ile `0.0.10` olarak hizalanacak.
+
+#### Notes
+- Root-cause evidence: YouTube endpoint default TLS bağlantısında `INVALID_SESSION_ID`, TLS 1.2 ile `404` (TLS handshake başarılı) döndü; `404`, GET ile yanlış HTTP metodu kullanıldığı için beklenen yanıt.
+- OAuth token akışı kullanıcı tarafından henüz yeniden denenmedi.

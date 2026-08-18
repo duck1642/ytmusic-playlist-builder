@@ -41,9 +41,10 @@ def test_setup_oauth_saves_token_file(tmp_path: Path, monkeypatch: pytest.Monkey
         client_secret: str,
         *,
         filepath: str,
+        session: object,
         open_browser: bool,
     ) -> None:
-        calls.append((client_id, client_secret, filepath, open_browser))
+        calls.append((client_id, client_secret, filepath, session, open_browser))
         Path(filepath).write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(ytmusicapi, "setup_oauth", fake_setup_oauth)
@@ -52,7 +53,9 @@ def test_setup_oauth_saves_token_file(tmp_path: Path, monkeypatch: pytest.Monkey
 
     assert result == auth_file
     assert auth_file.is_file()
-    assert calls == [("client-id", "client-secret", str(auth_file), False)]
+    assert calls[0][0:3] == ("client-id", "client-secret", str(auth_file))
+    assert calls[0][3].get_adapter("https://").ssl_context.maximum_version.name == "TLSv1_2"
+    assert calls[0][4] is False
 
 
 def test_load_oauth_client_rejects_missing_secret(tmp_path: Path) -> None:

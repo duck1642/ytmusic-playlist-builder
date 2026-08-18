@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .network import create_requests_session
 
 class AuthError(RuntimeError):
     """Raised when local YouTube Music authentication cannot be prepared."""
@@ -62,10 +63,12 @@ def setup_oauth(client_file: Path, auth_file: Path, *, open_browser: bool = True
 
     auth_file.parent.mkdir(parents=True, exist_ok=True)
     try:
+        session = create_requests_session()
         ytmusic_setup_oauth(
             client.client_id,
             client.client_secret,
             filepath=str(auth_file),
+            session=session,
             open_browser=open_browser,
         )
     except Exception as error:

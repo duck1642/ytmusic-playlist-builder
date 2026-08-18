@@ -67,10 +67,13 @@ class YtMusicAdapter:
                 "ytmusicapi is required for live YouTube Music access; install requirements.txt"
             ) from error
 
+        from .network import create_requests_session
+
+        session = create_requests_session()
         if auth_file is None:
-            client = YTMusic()
+            client = YTMusic(requests_session=session)
         elif oauth_client_file is None:
-            client = YTMusic(str(auth_file))
+            client = YTMusic(str(auth_file), requests_session=session)
         else:
             from .auth import load_oauth_client
 
@@ -84,8 +87,16 @@ class YtMusicAdapter:
                 raise YtMusicError(f"Could not read OAuth client file: {error}") from error
             except RuntimeError as error:
                 raise YtMusicError(str(error)) from error
-            credentials = OAuthCredentials(oauth_client.client_id, oauth_client.client_secret)
-            client = YTMusic(str(auth_file), oauth_credentials=credentials)
+            credentials = OAuthCredentials(
+                oauth_client.client_id,
+                oauth_client.client_secret,
+                session=session,
+            )
+            client = YTMusic(
+                str(auth_file),
+                requests_session=session,
+                oauth_credentials=credentials,
+            )
         return cls(client)
 
     def resolve_artist(self, name: str) -> ArtistReference:
