@@ -1,10 +1,13 @@
 import asyncio
+import sys
 from pathlib import Path
 
+import pytest
 from textual.command import CommandList, CommandPalette
 from textual.widgets import Button, DataTable, Footer, Input, Static
 
 from playlist_builder.artists import read_artist_file
+from playlist_builder.textual_driver import ClickWheelWindowsDriver
 from playlist_builder.tui import PlaylistBuilderApp, run_tui
 
 
@@ -33,6 +36,28 @@ def _write_config(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     return config_path
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows terminal driver test")
+def test_windows_mouse_driver_keeps_clicks_without_passive_tracking() -> None:
+    writes: list[str] = []
+    driver = ClickWheelWindowsDriver.__new__(ClickWheelWindowsDriver)
+    driver._mouse = True
+    driver.write = writes.append
+    driver.flush = lambda: None
+
+    driver._enable_mouse_support()
+
+    assert "\x1b[?1000h" in writes
+    assert "\x1b[?1006h" in writes
+    assert "\x1b[?1003h" not in writes
+
+    writes.clear()
+    driver._disable_mouse_support()
+
+    assert "\x1b[?1000l" in writes
+    assert "\x1b[?1006l" in writes
+    assert "\x1b[?1003h" not in writes
 
 
 def test_textual_app_loads_project_summary(tmp_path: Path) -> None:

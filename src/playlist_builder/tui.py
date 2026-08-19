@@ -20,6 +20,7 @@ from .artists import (
 from .auth import AuthError
 from .config import ConfigError, load_config
 from .playlists import genre_label
+from .textual_driver import ClickWheelWindowsDriver
 
 
 RunFunction = Callable[..., int]
@@ -682,7 +683,7 @@ class PlaylistBuilderApp(App[str]):
         *,
         run_fn: RunFunction,
     ) -> None:
-        super().__init__()
+        super().__init__(driver_class=ClickWheelWindowsDriver)
         self.config_path = config_path
         self.run_fn = run_fn
         self._busy = False

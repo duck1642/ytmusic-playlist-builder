@@ -499,3 +499,29 @@ Tüm TUI butonları tek satırlık kompakt görünüme alındı. Sanatçı edit�
 - Verification: `pytest` → `46 passed`; `compileall`, `pip check`, CLI help ve `git diff --check` başarılı.
 - Gerçek PTY smoke testinde ana ekran ve editör render edildi; editörde panel genişletme ve durum mesajı kontrol edildi.
 - Sürüm `0.0.17` olarak hizalandı.
+
+### 2026-08-19T23:40+03:00
+
+#### Task
+Windows terminalinde mouse takılmasını azaltmak; TUI'de tıklama ve tekerlek desteğini korumak.
+
+#### Summary
+Textual'ın varsayılan Windows sürücüsü yerine proje içi bir sürücü bağlandı. Mouse hareketlerini sürekli raporlayan `?1003h` modu açılmıyor; yalnızca tıklama/tekerlek olayları için `?1000h` ve SGR koordinatları için `?1006h` kullanılıyor. Uygulama başlarken olası eski mouse modları, kapanırken de kullanılan modlar temizleniyor.
+
+#### Affected Files
+- `src/playlist_builder/textual_driver.py`
+- `src/playlist_builder/tui.py`
+- `tests/test_tui.py`
+- `README.md`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Sürükleme sırasında hareket takibi eklenmedi; bu TUI için gerekli değil ve olay yükünü yeniden artırır.
+- OAuth ve playlist oluşturma çekirdeği değiştirilmedi.
+- Windows dışı platformlarda Textual'ın kendi sürücüsü kullanılmaya devam ediyor.
+
+#### Notes
+- Verification: `pytest` → `47 passed`; `compileall`, `pip check` ve `git diff --check` başarılı.
+- Gerçek PTY smoke testinde `?1003h` gönderilmedi; uygulama `q` ile temiz kapanıp mouse modlarını kapattı.
+- Sürüm `0.0.18` olarak hizalandı.
