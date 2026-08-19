@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 
 from textual.command import CommandList, CommandPalette
-from textual.widgets import DataTable, Footer, Input, Static
+from textual.widgets import Button, DataTable, Footer, Input, Static
 
 from playlist_builder.artists import read_artist_file
 from playlist_builder.tui import PlaylistBuilderApp, run_tui
@@ -68,6 +68,8 @@ def test_textual_command_palette_is_enabled_and_lists_app_actions(tmp_path: Path
             command_text = "\n".join(str(option.prompt) for option in command_list.options)
             assert "Dry-run planını göster" in command_text
             assert "Playlistleri düzenle" in command_text
+            assert "Sol paneli küçült" in command_text
+            assert "Panel boyutlarını sıfırla" in command_text
 
             await pilot.press("escape")
             await pilot.pause()
@@ -137,7 +139,11 @@ def test_artist_editor_layout_fits_common_terminal_sizes(tmp_path: Path) -> None
                     "artist-save",
                     "artist-close",
                 ):
-                    assert screen.query_one(f"#{button_id}").region.right <= size[0]
+                    button = screen.query_one(f"#{button_id}", Button)
+                    assert button.region.right <= size[0]
+                    assert button.region.height == 1
+
+                assert actions.height == 1
 
                 screen.dismiss("closed")
 
@@ -230,12 +236,68 @@ def test_textual_layout_fits_common_terminal_sizes(tmp_path: Path) -> None:
                     assert app.query_one("#exit").region.bottom <= sidebar.region.bottom
 
                 if size == (80, 24):
-                    assert sidebar.virtual_size.height > sidebar.region.height
-                    sidebar.scroll_end(animate=False, immediate=True, force=True)
-                    await pilot.pause()
+                    if sidebar.virtual_size.height > sidebar.region.height:
+                        sidebar.scroll_end(animate=False, immediate=True, force=True)
+                        await pilot.pause()
                     assert app.query_one("#exit").region.bottom <= sidebar.region.bottom
 
                 app.exit("layout-check")
+
+    asyncio.run(scenario())
+
+
+def test_main_panel_resize_shortcuts(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+
+    async def scenario() -> None:
+        async with app.run_test(size=(120, 40)) as pilot:
+            sidebar = app.query_one("#sidebar")
+            default_width = sidebar.region.width
+
+            await pilot.press("ctrl+right")
+            await pilot.pause()
+            assert sidebar.region.width == default_width + app.PANEL_RESIZE_STEP
+
+            await pilot.press("ctrl+left")
+            await pilot.pause()
+            assert sidebar.region.width == default_width
+
+            await pilot.press("ctrl+right")
+            await pilot.press("ctrl+0")
+            await pilot.pause()
+            assert sidebar.region.width == default_width
+
+            assert app.query_one("#dry-run", Button).region.height == 1
+
+    asyncio.run(scenario())
+
+
+def test_artist_editor_panel_resize_shortcuts(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+
+    async def scenario() -> None:
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.click("#artists")
+            await pilot.pause()
+
+            screen = app.screen
+            panel = screen.query_one("#editor-categories")
+            default_width = panel.region.width
+
+            await pilot.press("ctrl+right")
+            await pilot.pause()
+            assert panel.region.width == default_width + screen.PANEL_RESIZE_STEP
+
+            await pilot.press("ctrl+left")
+            await pilot.pause()
+            assert panel.region.width == default_width
+
+            await pilot.press("ctrl+right")
+            await pilot.press("ctrl+0")
+            await pilot.pause()
+            assert panel.region.width == default_width
 
     asyncio.run(scenario())
 

@@ -473,3 +473,29 @@ Textual’ın native command palette’i etkinleştirildi. Ana footer artık `D`
 - Gerçek PTY smoke testinde footer taşmadan render edildi; `Ctrl+P` palette’i açıldı ve uygulama aksiyonları listelendi.
 - Sürüm `0.0.16` olarak hizalandı.
 - Mevcut eski dosyalar (`metal.txt` gibi) yeni adlandırma kuralıyla `metal` playlist kimliğine karşılık gelir. Eski YouTube playlistleri otomatik migrate veya delete edilmez.
+
+### 2026-08-19T10:44+03:00
+
+#### Task
+TUI butonlarını küçültmek ve panelleri klavye ile yeniden boyutlandırabilmek.
+
+#### Summary
+Tüm TUI butonları tek satırlık kompakt görünüme alındı. Sanatçı editöründeki aksiyon butonları artık içerik genişliğini kullanıyor. Ana ekrandaki sol panel ve editördeki playlist paneli `Ctrl+Left` / `Ctrl+Right` ile daraltılıp genişletilebiliyor; `Ctrl+0` varsayılan genişliğe döndürüyor.
+
+#### Affected Files
+- `src/playlist_builder/tui.py`
+- `tests/test_tui.py`
+- `README.md`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Buton boyutu ve panel genişliği ayarları yalnızca mevcut oturumda tutuluyor; config'e kalıcı UI ayarı eklenmedi.
+- Ana panel genişliği `22–44`, editör playlist paneli `24–50` sütun aralığında ve adım `2` olarak belirlendi.
+- Native `Ctrl+P` command palette'e ana ekran ve editör panel boyutu komutları eklendi.
+- OAuth akışı ve playlist oluşturma çekirdeği değiştirilmedi.
+
+#### Notes
+- Verification: `pytest` → `46 passed`; `compileall`, `pip check`, CLI help ve `git diff --check` başarılı.
+- Gerçek PTY smoke testinde ana ekran ve editör render edildi; editörde panel genişletme ve durum mesajı kontrol edildi.
+- Sürüm `0.0.17` olarak hizalandı.

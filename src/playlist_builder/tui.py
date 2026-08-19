@@ -64,8 +64,8 @@ class ConfirmPlaylistDeleteScreen(ModalScreen[bool]):
             yield Static(f'"{self.playlist_name}" playlist dosyası silinsin mi?')
             yield Static("YouTube Music'teki mevcut playlist silinmez.")
             with Horizontal():
-                yield Button("Sil", id="confirm-delete", variant="error")
-                yield Button("Vazgeç", id="cancel-delete")
+                yield Button("Sil", id="confirm-delete", variant="error", compact=True)
+                yield Button("Vazgeç", id="cancel-delete", compact=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "confirm-delete":
@@ -82,6 +82,11 @@ class ConfirmPlaylistDeleteScreen(ModalScreen[bool]):
 
 class ArtistEditorScreen(ModalScreen[str]):
     """Manage playlist files and their artist lists without leaving the TUI."""
+
+    DEFAULT_CATEGORY_PANEL_WIDTH = 34
+    MIN_CATEGORY_PANEL_WIDTH = 24
+    MAX_CATEGORY_PANEL_WIDTH = 50
+    PANEL_RESIZE_STEP = 2
 
     CSS = """
     ModalScreen {
@@ -104,7 +109,8 @@ class ArtistEditorScreen(ModalScreen[str]):
 
     #editor-categories {
         width: 34;
-        min-width: 28;
+        min-width: 24;
+        max-width: 50;
         margin: 0 1 0 0;
         padding: 1;
         border: round $panel;
@@ -143,11 +149,11 @@ class ArtistEditorScreen(ModalScreen[str]):
     }
 
     #editor-actions {
-        height: 3;
+        height: 1;
     }
 
     #editor-actions Button {
-        width: 1fr;
+        width: auto;
         min-width: 8;
         margin: 0 1 0 0;
     }
@@ -167,6 +173,27 @@ class ArtistEditorScreen(ModalScreen[str]):
         Binding("s", "save_artists", "Kaydet"),
         Binding("r", "reload_artists", "Diskten yükle", show=False),
         Binding("escape", "close_editor", "Kapat"),
+        Binding(
+            "ctrl+left",
+            "resize_category_panel_smaller",
+            "Playlist panelini küçült",
+            show=False,
+            priority=True,
+        ),
+        Binding(
+            "ctrl+right",
+            "resize_category_panel_larger",
+            "Playlist panelini büyüt",
+            show=False,
+            priority=True,
+        ),
+        Binding(
+            "ctrl+0",
+            "reset_category_panel",
+            "Panel boyutunu sıfırla",
+            show=False,
+            priority=True,
+        ),
     ]
 
     def __init__(self, config_path: Path, *, initial_genre: str | None = None) -> None:
@@ -179,6 +206,7 @@ class ArtistEditorScreen(ModalScreen[str]):
         self._dirty_genres: set[str] = set()
         self._editing_index: int | None = None
         self._playlist_input_mode: str | None = None
+        self._category_panel_width = self.DEFAULT_CATEGORY_PANEL_WIDTH
 
     def compose(self) -> ComposeResult:
         yield Header(icon=" ")
@@ -189,9 +217,9 @@ class ArtistEditorScreen(ModalScreen[str]):
                     yield Static("Playlistler", classes="section-title")
                     yield DataTable(id="artist-categories")
                     with Vertical(id="category-actions"):
-                        yield Button("Yeni", id="playlist-new", variant="primary")
-                        yield Button("Ad değiştir", id="playlist-rename")
-                        yield Button("Sil", id="playlist-delete", variant="error")
+                        yield Button("Yeni", id="playlist-new", variant="primary", compact=True)
+                        yield Button("Ad değiştir", id="playlist-rename", compact=True)
+                        yield Button("Sil", id="playlist-delete", variant="error", compact=True)
                 with Vertical(id="editor-artists"):
                     yield Static(id="artist-category", classes="section-title")
                     yield Static(id="artist-path")
@@ -201,18 +229,41 @@ class ArtistEditorScreen(ModalScreen[str]):
                 id="artist-input",
             )
             with Horizontal(id="editor-actions"):
-                yield Button("Ekle", id="artist-add", variant="primary")
-                yield Button("Düzenle", id="artist-edit")
-                yield Button("Sil", id="artist-delete", variant="error")
-                yield Button("Kaydet", id="artist-save", variant="success")
-                yield Button("Kapat", id="artist-close")
+                yield Button("Ekle", id="artist-add", variant="primary", compact=True)
+                yield Button("Düzenle", id="artist-edit", compact=True)
+                yield Button("Sil", id="artist-delete", variant="error", compact=True)
+                yield Button("Kaydet", id="artist-save", variant="success", compact=True)
+                yield Button("Kapat", id="artist-close", compact=True)
             yield Static(id="editor-status")
         yield Footer()
 
     def on_mount(self) -> None:
+        self._apply_category_panel_width()
         self.query_one("#artist-categories", DataTable).add_columns("Playlist", "Sanatçı")
         self.query_one("#artist-list", DataTable).add_column("Sanatçı")
         self._reload_from_disk()
+
+    def action_resize_category_panel_smaller(self) -> None:
+        self._set_category_panel_width(-self.PANEL_RESIZE_STEP)
+
+    def action_resize_category_panel_larger(self) -> None:
+        self._set_category_panel_width(self.PANEL_RESIZE_STEP)
+
+    def action_reset_category_panel(self) -> None:
+        self._category_panel_width = self.DEFAULT_CATEGORY_PANEL_WIDTH
+        self._apply_category_panel_width()
+        self._set_editor_status(f"Playlist paneli sıfırlandı: {self._category_panel_width} sütun")
+
+    def _set_category_panel_width(self, delta: int) -> None:
+        self._category_panel_width = max(
+            self.MIN_CATEGORY_PANEL_WIDTH,
+            min(self.MAX_CATEGORY_PANEL_WIDTH, self._category_panel_width + delta),
+        )
+        self._apply_category_panel_width()
+        self._set_editor_status(f"Playlist paneli: {self._category_panel_width} sütun")
+
+    def _apply_category_panel_width(self) -> None:
+        self.query_one("#editor-categories").styles.width = self._category_panel_width
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         actions = {
@@ -518,6 +569,10 @@ class PlaylistBuilderApp(App[str]):
 
     TITLE = "YouTube Music Playlist Builder"
     ENABLE_COMMAND_PALETTE = True
+    DEFAULT_SIDEBAR_WIDTH = 30
+    MIN_SIDEBAR_WIDTH = 22
+    MAX_SIDEBAR_WIDTH = 44
+    PANEL_RESIZE_STEP = 2
     CSS = """
     Screen {
         layout: vertical;
@@ -529,7 +584,8 @@ class PlaylistBuilderApp(App[str]):
 
     #sidebar {
         width: 30;
-        min-width: 26;
+        min-width: 22;
+        max-width: 44;
         padding: 1;
         border: round $accent;
     }
@@ -568,6 +624,9 @@ class PlaylistBuilderApp(App[str]):
 
     Button {
         width: 100%;
+        height: 1;
+        min-height: 1;
+        padding: 0 1;
         margin: 0 0 1 0;
     }
 
@@ -593,6 +652,27 @@ class PlaylistBuilderApp(App[str]):
             priority=True,
             tooltip="Komut paletini aç",
         ),
+        Binding(
+            "ctrl+left",
+            "resize_sidebar_smaller",
+            "Sol paneli küçült",
+            show=False,
+            priority=True,
+        ),
+        Binding(
+            "ctrl+right",
+            "resize_sidebar_larger",
+            "Sol paneli büyüt",
+            show=False,
+            priority=True,
+        ),
+        Binding(
+            "ctrl+0",
+            "reset_panel_sizes",
+            "Panel boyutlarını sıfırla",
+            show=False,
+            priority=True,
+        ),
         ("q", "quit_app", "Çıkış"),
     ]
 
@@ -607,6 +687,7 @@ class PlaylistBuilderApp(App[str]):
         self.run_fn = run_fn
         self._busy = False
         self._genre_keys: list[str] = []
+        self._sidebar_width = self.DEFAULT_SIDEBAR_WIDTH
 
     def compose(self) -> ComposeResult:
         yield Header(icon=" ")
@@ -614,12 +695,12 @@ class PlaylistBuilderApp(App[str]):
             with VerticalScroll(id="sidebar"):
                 yield Static("Durum", classes="section-title")
                 yield Static(id="status")
-                yield Button("Dry-run planı", id="dry-run", variant="primary")
-                yield Button("Build / güncelle", id="build", variant="success")
-                yield Button("Playlistleri düzenle", id="artists")
-                yield Button("OAuth kurulumu", id="oauth")
-                yield Button("Yenile", id="refresh")
-                yield Button("Çıkış", id="exit", variant="error")
+                yield Button("Dry-run planı", id="dry-run", variant="primary", compact=True)
+                yield Button("Build / güncelle", id="build", variant="success", compact=True)
+                yield Button("Playlistleri düzenle", id="artists", compact=True)
+                yield Button("OAuth kurulumu", id="oauth", compact=True)
+                yield Button("Yenile", id="refresh", compact=True)
+                yield Button("Çıkış", id="exit", variant="error", compact=True)
             with Vertical(id="content"):
                 yield Static("Playlistler", classes="section-title")
                 yield DataTable(id="genres")
@@ -628,6 +709,7 @@ class PlaylistBuilderApp(App[str]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self._apply_sidebar_width()
         table = self.query_one("#genres", DataTable)
         table.add_columns("Playlist", "Sanatçı", "Durum")
         self._refresh_summary()
@@ -668,6 +750,37 @@ class PlaylistBuilderApp(App[str]):
             self._after_artist_editor,
         )
 
+    def action_resize_sidebar_smaller(self) -> None:
+        if isinstance(self.screen, ArtistEditorScreen):
+            self.screen.action_resize_category_panel_smaller()
+            return
+        self._set_sidebar_width(-self.PANEL_RESIZE_STEP)
+
+    def action_resize_sidebar_larger(self) -> None:
+        if isinstance(self.screen, ArtistEditorScreen):
+            self.screen.action_resize_category_panel_larger()
+            return
+        self._set_sidebar_width(self.PANEL_RESIZE_STEP)
+
+    def action_reset_panel_sizes(self) -> None:
+        if isinstance(self.screen, ArtistEditorScreen):
+            self.screen.action_reset_category_panel()
+            return
+        self._sidebar_width = self.DEFAULT_SIDEBAR_WIDTH
+        self._apply_sidebar_width()
+        self._write_log(f"Sol panel sıfırlandı: {self._sidebar_width} sütun")
+
+    def _set_sidebar_width(self, delta: int) -> None:
+        self._sidebar_width = max(
+            self.MIN_SIDEBAR_WIDTH,
+            min(self.MAX_SIDEBAR_WIDTH, self._sidebar_width + delta),
+        )
+        self._apply_sidebar_width()
+        self._write_log(f"Sol panel: {self._sidebar_width} sütun")
+
+    def _apply_sidebar_width(self) -> None:
+        self.query_one("#sidebar").styles.width = self._sidebar_width
+
     def action_quit_app(self) -> None:
         if self._busy:
             self._write_log("İşlem devam ederken çıkış yapılamaz.")
@@ -678,6 +791,21 @@ class PlaylistBuilderApp(App[str]):
         """Add the app's primary actions to Textual's native command palette."""
         yield from super().get_system_commands(screen)
         if isinstance(screen, ArtistEditorScreen):
+            yield SystemCommand(
+                "Playlist panelini küçült",
+                "Editördeki playlist panelinin genişliğini azaltır.",
+                screen.action_resize_category_panel_smaller,
+            )
+            yield SystemCommand(
+                "Playlist panelini büyüt",
+                "Editördeki playlist panelinin genişliğini artırır.",
+                screen.action_resize_category_panel_larger,
+            )
+            yield SystemCommand(
+                "Panel boyutunu sıfırla",
+                "Editör panelini varsayılan genişliğine döndürür.",
+                screen.action_reset_category_panel,
+            )
             return
         yield SystemCommand(
             "Dry-run planını göster",
@@ -698,6 +826,21 @@ class PlaylistBuilderApp(App[str]):
             "Projeyi yenile",
             "Playlist dosyalarını yeniden okuyup özeti günceller.",
             self.action_refresh,
+        )
+        yield SystemCommand(
+            "Sol paneli küçült",
+            "Ana ekrandaki sol panelin genişliğini azaltır.",
+            self.action_resize_sidebar_smaller,
+        )
+        yield SystemCommand(
+            "Sol paneli büyüt",
+            "Ana ekrandaki sol panelin genişliğini artırır.",
+            self.action_resize_sidebar_larger,
+        )
+        yield SystemCommand(
+            "Panel boyutlarını sıfırla",
+            "Ana ekran panelini varsayılan genişliğine döndürür.",
+            self.action_reset_panel_sizes,
         )
 
     def _request_oauth(self) -> None:
