@@ -311,3 +311,26 @@ Teşhis sırasında Python/requests ve Windows curl bağlantılarının YouTube 
 #### Notes
 - Root-cause evidence: YouTube endpoint default TLS bağlantısında `INVALID_SESSION_ID`, TLS 1.2 ile `404` (TLS handshake başarılı) döndü; `404`, GET ile yanlış HTTP metodu kullanıldığı için beklenen yanıt.
 - OAuth token akışı kullanıcı tarafından henüz yeniden denenmedi.
+
+### 2026-08-19T03:04+03:00
+
+#### Task
+TLS 1.2 düzeltmesinden sonra devam eden OAuth device-code zaman aşımını çözmek.
+
+#### Summary
+`ytmusicapi 1.12.2` içindeki eski `https://www.youtube.com/o/oauth2/device/code` endpoint'inin POST isteği zaman aşımına uğrarken güncel Google `https://oauth2.googleapis.com/device/code` endpoint'inin hızlı ve geçerli bir yanıt verdiği doğrulandı. OAuth kurulumu, ytmusicapi'nin OAuth sınıflarını koruyarak güncel device-code ve token sözleşmesini kullanacak şekilde uyarlandı.
+
+#### Affected Files
+- `src/playlist_builder/auth.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_auth.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- TLS sertifika doğrulaması korunacak ve mevcut TLS 1.2 session kullanılmaya devam edecek.
+- Device-code isteği güncel Google endpoint'ine, token isteği `device_code` ve `urn:ietf:params:oauth:grant-type:device_code` parametrelerine geçirilecek.
+- Paket sürümü bu düzeltme commit'i ile `0.0.11` olarak hizalanacak.
+
+#### Notes
+- `auth/client_secret.json` dosyası yapısal olarak geçerli; hata OAuth client JSON dosyasından kaynaklanmıyor.
+- Verification: `pytest` → `33 passed`; `compileall` başarılı; gerçek tarayıcı OAuth akışı kullanıcı tarafından henüz yeniden denenmedi.

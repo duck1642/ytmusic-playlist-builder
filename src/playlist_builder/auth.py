@@ -7,6 +7,11 @@ from typing import Any
 
 from .network import create_requests_session
 
+
+_GOOGLE_DEVICE_CODE_URL = "https://oauth2.googleapis.com/device/code"
+_GOOGLE_DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
+
+
 class AuthError(RuntimeError):
     """Raised when local YouTube Music authentication cannot be prepared."""
 
@@ -55,21 +60,47 @@ def setup_oauth(client_file: Path, auth_file: Path, *, open_browser: bool = True
     """Run ytmusicapi's OAuth device flow and save its token locally."""
     client = load_oauth_client(client_file)
     try:
-        from ytmusicapi import setup_oauth as ytmusic_setup_oauth
+        from ytmusicapi.auth.oauth import OAuthCredentials
+        from ytmusicapi.auth.oauth.token import RefreshingToken
+        from ytmusicapi.constants import OAUTH_SCOPE, OAUTH_TOKEN_URL
     except ImportError as error:
         raise AuthError(
             "ytmusicapi is required for OAuth setup; install requirements.txt"
         ) from error
 
+    class GoogleDeviceOAuthCredentials(OAuthCredentials):
+        """Use Google's current device authorization endpoints."""
+
+        def get_code(self) -> Any:
+            response = self._send_request(
+                _GOOGLE_DEVICE_CODE_URL,
+                data={"scope": OAUTH_SCOPE},
+            )
+            return response.json()
+
+        def token_from_code(self, device_code: str) -> Any:
+            response = self._send_request(
+                OAUTH_TOKEN_URL,
+                data={
+                    "client_secret": self.client_secret,
+                    "device_code": device_code,
+                    "grant_type": _GOOGLE_DEVICE_GRANT_TYPE,
+                },
+            )
+            return response.json()
+
     auth_file.parent.mkdir(parents=True, exist_ok=True)
     try:
         session = create_requests_session()
-        ytmusic_setup_oauth(
+        credentials = GoogleDeviceOAuthCredentials(
             client.client_id,
             client.client_secret,
-            filepath=str(auth_file),
             session=session,
+        )
+        RefreshingToken.prompt_for_token(
+            credentials,
             open_browser=open_browser,
+            to_file=str(auth_file),
         )
     except Exception as error:
         raise AuthError(f"OAuth setup failed: {error}") from error
