@@ -361,3 +361,29 @@ Eski input tabanlı menü yerine Windows Terminal uyumlu Textual uygulaması ekl
 #### Notes
 - Verification: `pytest` → `34 passed`; `compileall` başarılı; `pip check` bağımlılık sorunu bildirmedi.
 - Textual `8.2.8` sanal ortamda çalıştırılarak doğrulandı.
+
+### 2026-08-19T03:46+03:00
+
+#### Task
+Textual TUI'nin gerçek terminal ölçülerindeki görsel yerleşim sorunlarını düzeltmek.
+
+#### Summary
+PTY ve Textual `run_test` ölçümleriyle küçük ve orta terminal boyutları kontrol edildi. Sol paneldeki düğmelerin ekran dışına sessizce taşması, kategori/çıktı panellerinin footer'a taşması ve gereksiz varsayılan arayüz öğeleri giderildi. Dar terminaller için sol panel kaydırılabilir hale getirildi; ana içerik panelleri footer sınırları içinde tutuldu.
+
+#### Affected Files
+- `src/playlist_builder/tui.py`
+- `tests/test_tui.py`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Kategori tablosu sabit ve kompakt yükseklikte tutulacak; çıktı paneli kalan alanı kullanacak.
+- Dar terminalde kontroller gizlenmeyecek; sol panel `VerticalScroll` ile erişilebilir kalacak.
+- OAuth akışına ve playlist çekirdeğine dokunulmayacak; bu iterasyon yalnızca TUI sunum katmanını kapsayacak.
+- Paket sürümü bu iterasyon commit'i ile `0.0.13` olarak hizalanacak.
+
+#### Notes
+- Evidence: TUI `80x24`, `100x30`, `120x35` ve `160x40` boyutlarında ölçüldü; ana paneller footer'a taşmadı. `120x35` ölçüsünde `Yenile` ve `Çıkış` görünür; `80x24` ölçüsünde sol panel kaydırılabilir.
+- `palette` kısayolu ve Header'daki varsayılan daire simgesi kaldırıldı; buton metinleri dar genişliklere sığacak şekilde kısaltıldı.
+- Verification: `pytest` → `35 passed`; `compileall`, `pip check`, CLI help, `git diff --check` ve gerçek PTY TUI smoke testi başarılı.
+- OAuth akışı bu iterasyonda çalıştırılmadı ve OAuth dosyaları değiştirilmedi.

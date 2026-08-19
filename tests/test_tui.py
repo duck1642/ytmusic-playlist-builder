@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 
-from textual.widgets import DataTable
+from textual.widgets import DataTable, Footer
 
 from playlist_builder.tui import PlaylistBuilderApp, run_tui
 
@@ -45,6 +45,39 @@ def test_textual_app_loads_project_summary(tmp_path: Path) -> None:
 
     asyncio.run(scenario())
     assert app.return_value == "exit"
+
+
+def test_textual_layout_fits_common_terminal_sizes(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+
+    async def scenario() -> None:
+        for size in ((80, 24), (100, 30), (120, 35)):
+            app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+            async with app.run_test(size=size) as pilot:
+                body = app.query_one("#body").region
+                genres = app.query_one("#genres").region
+                output = app.query_one("#output").region
+                footer = app.query_one(Footer).region
+                sidebar = app.query_one("#sidebar")
+
+                assert genres.bottom <= output.y
+                assert output.bottom <= footer.y
+                assert output.bottom <= body.bottom
+                assert sidebar.region.bottom <= body.bottom
+
+                if size == (120, 35):
+                    assert app.query_one("#refresh").region.bottom <= sidebar.region.bottom
+                    assert app.query_one("#exit").region.bottom <= sidebar.region.bottom
+
+                if size == (80, 24):
+                    assert sidebar.virtual_size.height > sidebar.region.height
+                    sidebar.scroll_end(animate=False, immediate=True, force=True)
+                    await pilot.pause()
+                    assert app.query_one("#exit").region.bottom <= sidebar.region.bottom
+
+                app.exit("layout-check")
+
+    asyncio.run(scenario())
 
 
 def test_textual_app_runs_dry_run_in_worker(tmp_path: Path) -> None:

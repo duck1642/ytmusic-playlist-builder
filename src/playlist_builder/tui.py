@@ -4,7 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, DataTable, Footer, Header, Log, Static
 
 from .artists import read_artist_lists
@@ -22,6 +22,7 @@ class PlaylistBuilderApp(App[str]):
     """Small keyboard-driven terminal UI around the existing build workflow."""
 
     TITLE = "YouTube Music Playlist Builder"
+    ENABLE_COMMAND_PALETTE = False
     CSS = """
     Screen {
         layout: vertical;
@@ -45,22 +46,23 @@ class PlaylistBuilderApp(App[str]):
 
     #status {
         height: auto;
-        min-height: 8;
+        min-height: 6;
         margin: 0 0 1 0;
-        padding: 1;
+        padding: 0 1;
         border: round $panel;
     }
 
     #genres {
-        height: 1fr;
-        min-height: 8;
+        height: 11;
+        min-height: 9;
+        max-height: 11;
         margin: 0 0 1 0;
         border: round $panel;
     }
 
     #output {
         height: 1fr;
-        min-height: 8;
+        min-height: 5;
         border: round $panel;
     }
 
@@ -93,15 +95,15 @@ class PlaylistBuilderApp(App[str]):
         self._busy = False
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(icon=" ")
         with Horizontal(id="body"):
-            with Vertical(id="sidebar"):
+            with VerticalScroll(id="sidebar"):
                 yield Static("Durum", classes="section-title")
                 yield Static(id="status")
-                yield Button("Dry-run planını göster", id="dry-run", variant="primary")
-                yield Button("Playlist oluştur / güncelle", id="build", variant="success")
+                yield Button("Dry-run planı", id="dry-run", variant="primary")
+                yield Button("Build / güncelle", id="build", variant="success")
                 yield Button("OAuth kurulumu", id="oauth")
-                yield Button("Bilgileri yenile", id="refresh")
+                yield Button("Yenile", id="refresh")
                 yield Button("Çıkış", id="exit", variant="error")
             with Vertical(id="content"):
                 yield Static("Kategoriler", classes="section-title")
