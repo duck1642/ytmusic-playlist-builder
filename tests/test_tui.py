@@ -62,7 +62,7 @@ def test_artist_editor_writes_selected_category_file(tmp_path: Path) -> None:
 
             path = app.screen.query_one("#artist-path", Static)
             category = app.screen.query_one("#artist-category", Static)
-            assert str(category.render()) == "HIP-HOP / RAP"
+            assert str(category.render()) == "hip_hop_rap"
             assert str(path.render()) == f"Dosya: {Path('artists') / 'hip_hop_rap.txt'}"
 
             artist_input = app.screen.query_one("#artist-input", Input)
@@ -100,6 +100,9 @@ def test_artist_editor_layout_fits_common_terminal_sizes(tmp_path: Path) -> None
                 assert artist_input.bottom <= actions.y
                 assert status.bottom <= footer.y
                 for button_id in (
+                    "playlist-new",
+                    "playlist-rename",
+                    "playlist-delete",
                     "artist-add",
                     "artist-edit",
                     "artist-delete",
@@ -109,6 +112,40 @@ def test_artist_editor_layout_fits_common_terminal_sizes(tmp_path: Path) -> None
                     assert screen.query_one(f"#{button_id}").region.right <= size[0]
 
                 screen.dismiss("closed")
+
+    asyncio.run(scenario())
+
+
+def test_playlist_editor_can_create_rename_and_delete_playlist_file(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    artists_dir = tmp_path / "artists"
+    app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+
+    async def scenario() -> None:
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.click("#artists")
+            await pilot.pause()
+
+            await pilot.press("n")
+            app.screen.query_one("#artist-input", Input).value = "Focus Mix"
+            await pilot.press("enter")
+            assert (artists_dir / "Focus Mix.txt").is_file()
+
+            await pilot.click("#artist-categories")
+            await pilot.press("m")
+            app.screen.query_one("#artist-input", Input).value = "Focus"
+            await pilot.press("enter")
+            assert not (artists_dir / "Focus Mix.txt").exists()
+            assert (artists_dir / "Focus.txt").is_file()
+
+            await pilot.click("#artist-categories")
+            await pilot.press("p")
+            await pilot.pause()
+            await pilot.press("y")
+            await pilot.pause()
+            assert not (artists_dir / "Focus.txt").exists()
+
+            await pilot.click("#artist-close")
 
     asyncio.run(scenario())
 

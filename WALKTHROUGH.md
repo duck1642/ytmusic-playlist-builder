@@ -416,3 +416,34 @@ Kategori seçimi ile doğru `artists/<kategori>.txt` dosyasını hedefleyen bir 
 - Kanıt: `hip_hop_rap` seçimi `artists\\hip_hop_rap.txt` dosyasını gösteriyor; playlist adı mevcut `HIP-HOP / RAP - RAW` kuralıyla korunuyor.
 - Editör düzeni `80x24`, `100x30` ve `120x35` terminal ölçülerinde ölçüldü; düğmeler ekran dışına taşmıyor.
 - Verification: `pytest` → `40 passed`; `compileall`, `pip check`, CLI help, `git diff --check` ve PTY smoke testi başarılı.
+
+### 2026-08-19T04:38+03:00
+
+#### Task
+Hardcoded tür yapısını kaldırıp playlistleri kullanıcı tarafından dosya adı üzerinden yönetilebilir hale getirmek.
+
+#### Summary
+`artists/*.txt` dosyaları artık yalnızca sanatçı listesi değil, playlist tanımı olarak kullanılıyor. Dosyanın uzantısız adı YouTube Music playlist adı olarak doğrudan kullanılıyor; örneğin `METAL - RAW.txt` → `METAL - RAW`. Otomatik genre etiketi ve otomatik `- RAW` eki kaldırıldı. Playlist dosyaları TUI içinden oluşturulabiliyor, yeniden adlandırılabiliyor ve onayla silinebiliyor.
+
+#### Affected Files
+- `src/playlist_builder/artists.py`
+- `src/playlist_builder/playlists.py`
+- `src/playlist_builder/tui.py`
+- `tests/test_artists.py`
+- `tests/test_playlists.py`
+- `tests/test_tui.py`
+- `README.md`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Playlist/kategori listesi koddan değil, `config.artists_dir` altındaki tüm `.txt` dosyalarından okunacak.
+- Playlist dosyası oluşturma, yeniden adlandırma ve silme backend fonksiyonlarıyla doğrulanacak; dosya adlarında Windows'un geçersiz karakterleri reddedilecek.
+- TUI kısayolları: `N` yeni playlist, `M` ad değiştir, `P` playlist dosyasını sil; mevcut `A/E/X/S/R/Esc` sanatçı ve dosya işlemleri korunacak.
+- Artist değişiklikleri `Kaydet` ile yazılmaya devam edecek; playlist dosyası işlemleri doğrudan uygulanacak ve silme öncesi onay alınacak.
+- Yerel dosyayı silmek veya yeniden adlandırmak YouTube Music'teki mevcut playlisti otomatik silmez/yeniden adlandırmaz; bu, manuel eleme verisini korumak için bilinçli bir sınırdır.
+- OAuth akışı değiştirilmedi; sürüm `0.0.15` olarak hizalandı.
+
+#### Notes
+- Verification: `pytest` → `43 passed`; `compileall`, `pip check`, CLI help, `git diff --check` ve gerçek PTY TUI smoke testi başarılı.
+- Mevcut eski dosyalar (`metal.txt` gibi) yeni adlandırma kuralıyla `metal` playlist kimliğine karşılık gelir. Eski YouTube playlistleri otomatik migrate veya delete edilmez.

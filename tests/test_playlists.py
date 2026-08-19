@@ -43,19 +43,19 @@ def test_new_playlist_is_created_with_ordered_video_ids() -> None:
 
     assert reports[0].created is True
     assert reports[0].added_video_ids == ("one", "two")
-    assert api.created == [("ROCK - RAW", "RAW playlist for ROCK", "PRIVATE", ["one", "two"])]
-    assert state.playlist_ids == {"ROCK - RAW": "new-1"}
-    assert state.generated_video_ids == {"ROCK - RAW": ["one", "two"]}
+    assert api.created == [("rock", "RAW playlist for rock", "PRIVATE", ["one", "two"])]
+    assert state.playlist_ids == {"rock": "new-1"}
+    assert state.generated_video_ids == {"rock": ["one", "two"]}
 
 
 def test_append_only_does_not_restore_manually_removed_tracks() -> None:
     api = FakePlaylistApi(
-        [{"playlistId": "PL-ROCK", "title": "ROCK - RAW"}],
+        [{"playlistId": "PL-ROCK", "title": "rock"}],
         {"PL-ROCK": ["kept"]},
     )
     state = BuildState(
-        playlist_ids={"ROCK - RAW": "PL-ROCK"},
-        generated_video_ids={"ROCK - RAW": ["kept", "removed"]},
+        playlist_ids={"rock": "PL-ROCK"},
+        generated_video_ids={"rock": ["kept", "removed"]},
     )
 
     reports = PlaylistWriter(api).sync_genre(
@@ -65,8 +65,8 @@ def test_append_only_does_not_restore_manually_removed_tracks() -> None:
     assert reports[0].added_video_ids == ("new",)
     assert reports[0].manually_removed_video_ids == ("removed",)
     assert api.added == [("PL-ROCK", ["new"])]
-    assert state.removed_video_ids == {"ROCK - RAW": ["removed"]}
-    assert state.generated_video_ids == {"ROCK - RAW": ["kept", "new"]}
+    assert state.removed_video_ids == {"rock": ["removed"]}
+    assert state.generated_video_ids == {"rock": ["kept", "new"]}
 
 
 def test_dry_run_does_not_write_playlist_or_state() -> None:

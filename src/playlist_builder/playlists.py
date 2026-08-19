@@ -7,15 +7,6 @@ from .models import Track
 from .state import BuildState
 
 
-_GENRE_LABELS = {
-    "ambient_classical": "AMBIENT / CLASSICAL",
-    "electronic_drive": "ELECTRONIC - DRIVE",
-    "electronic_focus": "ELECTRONIC - FOCUS",
-    "hip_hop_rap": "HIP-HOP / RAP",
-    "jazz_soul_funk": "JAZZ / SOUL / FUNK",
-}
-
-
 @dataclass(frozen=True, slots=True)
 class PlaylistReport:
     title: str
@@ -27,11 +18,11 @@ class PlaylistReport:
 
 
 def genre_label(genre: str) -> str:
-    return _GENRE_LABELS.get(genre.casefold(), genre.replace("_", " ").upper())
+    return genre
 
 
 def playlist_title(genre: str, part_number: int, part_count: int) -> str:
-    base = f"{genre_label(genre)} - RAW"
+    base = genre_label(genre)
     return base if part_count == 1 else f"{base} {part_number}"
 
 
@@ -111,7 +102,7 @@ class PlaylistWriter:
             if not dry_run:
                 playlist_id = self.api.create_playlist(
                     title,
-                    description or f"RAW playlist for {title.split(' - RAW', 1)[0]}",
+                    description or f"RAW playlist for {title}",
                     privacy,
                     eligible_ids,
                 )

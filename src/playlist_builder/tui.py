@@ -4,11 +4,19 @@ from collections.abc import Callable
 from pathlib import Path
 
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Log, Static
 
-from .artists import artist_file_paths, read_artist_lists, write_artist_file
+from .artists import (
+    artist_file_paths,
+    create_playlist_file,
+    delete_playlist_file,
+    read_artist_lists,
+    rename_playlist_file,
+    write_artist_file,
+)
 from .auth import AuthError
 from .config import ConfigError, load_config
 from .playlists import genre_label
@@ -19,8 +27,61 @@ SetupOAuthFunction = Callable[[Path], int]
 AppFactory = Callable[..., "PlaylistBuilderApp"]
 
 
+class ConfirmPlaylistDeleteScreen(ModalScreen[bool]):
+    """Confirm a local playlist-file deletion before changing the project."""
+
+    CSS = """
+    ConfirmPlaylistDeleteScreen {
+        align: center middle;
+        background: $background 90%;
+    }
+
+    #delete-dialog {
+        width: 52;
+        height: auto;
+        padding: 1 2;
+        border: round $error;
+        background: $panel;
+    }
+
+    #delete-dialog Button {
+        width: 1fr;
+        margin: 1 1 0 0;
+    }
+    """
+    BINDINGS = [
+        ("y", "confirm_delete", "Sil"),
+        ("n", "cancel_delete", "Vazgeç"),
+        ("escape", "cancel_delete", "Vazgeç"),
+    ]
+
+    def __init__(self, playlist_name: str) -> None:
+        super().__init__()
+        self.playlist_name = playlist_name
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="delete-dialog"):
+            yield Static(f'"{self.playlist_name}" playlist dosyası silinsin mi?')
+            yield Static("YouTube Music'teki mevcut playlist silinmez.")
+            with Horizontal():
+                yield Button("Sil", id="confirm-delete", variant="error")
+                yield Button("Vazgeç", id="cancel-delete")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "confirm-delete":
+            self.action_confirm_delete()
+        elif event.button.id == "cancel-delete":
+            self.action_cancel_delete()
+
+    def action_confirm_delete(self) -> None:
+        self.dismiss(True)
+
+    def action_cancel_delete(self) -> None:
+        self.dismiss(False)
+
+
 class ArtistEditorScreen(ModalScreen[str]):
-    """Edit the existing category artist files without leaving the TUI."""
+    """Manage playlist files and their artist lists without leaving the TUI."""
 
     CSS = """
     ModalScreen {
@@ -47,6 +108,16 @@ class ArtistEditorScreen(ModalScreen[str]):
         margin: 0 1 0 0;
         padding: 1;
         border: round $panel;
+    }
+
+    #category-actions {
+        height: auto;
+        margin: 1 0 0 0;
+    }
+
+    #category-actions Button {
+        width: 100%;
+        margin: 0 0 1 0;
     }
 
     #editor-artists {
@@ -87,12 +158,15 @@ class ArtistEditorScreen(ModalScreen[str]):
     }
     """
     BINDINGS = [
-        ("a", "focus_artist_input", "Ekle"),
-        ("e", "edit_artist", "Düzenle"),
-        ("x", "delete_artist", "Sil"),
-        ("s", "save_artists", "Kaydet"),
-        ("r", "reload_artists", "Diskten yükle"),
-        ("escape", "close_editor", "Kapat"),
+        Binding("n", "new_playlist", "Yeni playlist"),
+        Binding("m", "rename_playlist", "Ad değiştir"),
+        Binding("p", "delete_playlist", "Playlist sil"),
+        Binding("a", "focus_artist_input", "Ekle"),
+        Binding("e", "edit_artist", "Düzenle", show=False),
+        Binding("x", "delete_artist", "Sil", show=False),
+        Binding("s", "save_artists", "Kaydet"),
+        Binding("r", "reload_artists", "Diskten yükle", show=False),
+        Binding("escape", "close_editor", "Kapat"),
     ]
 
     def __init__(self, config_path: Path, *, initial_genre: str | None = None) -> None:
@@ -104,15 +178,20 @@ class ArtistEditorScreen(ModalScreen[str]):
         self._selected_genre: str | None = None
         self._dirty_genres: set[str] = set()
         self._editing_index: int | None = None
+        self._playlist_input_mode: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(icon=" ")
         with Vertical(id="editor-body"):
-            yield Static("Sanatçı listelerini düzenle", id="editor-heading", classes="section-title")
+            yield Static("Playlistleri ve sanatçıları düzenle", id="editor-heading", classes="section-title")
             with Horizontal(id="editor-columns"):
                 with Vertical(id="editor-categories"):
-                    yield Static("Kategoriler", classes="section-title")
+                    yield Static("Playlistler", classes="section-title")
                     yield DataTable(id="artist-categories")
+                    with Vertical(id="category-actions"):
+                        yield Button("Yeni", id="playlist-new", variant="primary")
+                        yield Button("Ad değiştir", id="playlist-rename")
+                        yield Button("Sil", id="playlist-delete", variant="error")
                 with Vertical(id="editor-artists"):
                     yield Static(id="artist-category", classes="section-title")
                     yield Static(id="artist-path")
@@ -131,12 +210,15 @@ class ArtistEditorScreen(ModalScreen[str]):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.query_one("#artist-categories", DataTable).add_columns("Kategori", "Sanatçı")
+        self.query_one("#artist-categories", DataTable).add_columns("Playlist", "Sanatçı")
         self.query_one("#artist-list", DataTable).add_column("Sanatçı")
         self._reload_from_disk()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         actions = {
+            "playlist-new": self.action_new_playlist,
+            "playlist-rename": self.action_rename_playlist,
+            "playlist-delete": self.action_delete_playlist,
             "artist-add": self._add_artist,
             "artist-edit": self.action_edit_artist,
             "artist-delete": self.action_delete_artist,
@@ -150,7 +232,9 @@ class ArtistEditorScreen(ModalScreen[str]):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id != "artist-input":
             return
-        if self._editing_index is None:
+        if self._playlist_input_mode is not None:
+            self._submit_playlist_name()
+        elif self._editing_index is None:
             self._add_artist()
         else:
             self._apply_artist_edit()
@@ -165,9 +249,90 @@ class ArtistEditorScreen(ModalScreen[str]):
 
     def action_focus_artist_input(self) -> None:
         if self._selected_genre is not None:
+            self._playlist_input_mode = None
             self.query_one("#artist-input", Input).focus()
 
+    def action_new_playlist(self) -> None:
+        if self._dirty_genres:
+            self._set_editor_status("Kaydedilmemiş sanatçı değişikliği var; önce Kaydet'e basın.")
+            return
+        self._playlist_input_mode = "create"
+        self._editing_index = None
+        artist_input = self.query_one("#artist-input", Input)
+        artist_input.value = ""
+        artist_input.focus()
+        self._set_editor_status("Yeni playlist adı yazın; Enter ile oluşturun.")
+
+    def action_rename_playlist(self) -> None:
+        if self._dirty_genres:
+            self._set_editor_status("Kaydedilmemiş sanatçı değişikliği var; önce Kaydet'e basın.")
+            return
+        if self._selected_genre is None:
+            self._set_editor_status("Adını değiştirmek için bir playlist seçin.")
+            return
+        self._playlist_input_mode = "rename"
+        self._editing_index = None
+        artist_input = self.query_one("#artist-input", Input)
+        artist_input.value = self._selected_genre
+        artist_input.select_all()
+        artist_input.focus()
+        self._set_editor_status("Yeni playlist adı yazın; Enter ile yeniden adlandırın.")
+
+    def action_delete_playlist(self) -> None:
+        if self._dirty_genres:
+            self._set_editor_status("Kaydedilmemiş sanatçı değişikliği var; önce Kaydet'e basın.")
+            return
+        if self._selected_genre is None:
+            self._set_editor_status("Silmek için bir playlist seçin.")
+            return
+        self.app.push_screen(
+            ConfirmPlaylistDeleteScreen(self._selected_genre),
+            self._after_playlist_delete_confirmation,
+        )
+
+    def _submit_playlist_name(self) -> None:
+        mode = self._playlist_input_mode
+        name = self.query_one("#artist-input", Input).value.strip()
+        if mode is None:
+            return
+        try:
+            config = load_config(self.config_path)
+            if mode == "create":
+                path = create_playlist_file(config.artists_dir, name)
+                message = f"Playlist oluşturuldu: {path.stem}"
+            else:
+                if self._selected_genre is None:
+                    self._set_editor_status("Yeniden adlandırmak için bir playlist seçin.")
+                    return
+                path = rename_playlist_file(config.artists_dir, self._selected_genre, name)
+                message = f"Playlist yeniden adlandırıldı: {path.stem}"
+        except (ConfigError, OSError, ValueError) as error:
+            self._set_editor_status(f"Playlist işlemi başarısız: {error}")
+            return
+
+        self._selected_genre = path.stem
+        self._playlist_input_mode = None
+        self.query_one("#artist-input", Input).value = ""
+        self._reload_from_disk()
+        self._set_editor_status(message)
+
+    def _after_playlist_delete_confirmation(self, confirmed: bool | None) -> None:
+        if not confirmed or self._selected_genre is None:
+            return
+        deleted_name = self._selected_genre
+        try:
+            config = load_config(self.config_path)
+            delete_playlist_file(config.artists_dir, deleted_name)
+        except (ConfigError, OSError, ValueError) as error:
+            self._set_editor_status(f"Playlist silinemedi: {error}")
+            return
+
+        self._selected_genre = None
+        self._reload_from_disk()
+        self._set_editor_status(f"Playlist dosyası silindi: {deleted_name}")
+
     def action_edit_artist(self) -> None:
+        self._playlist_input_mode = None
         index = self._selected_artist_index()
         if index is None:
             self._set_editor_status("Düzenlemek için bir sanatçı seçin.")
@@ -180,6 +345,7 @@ class ArtistEditorScreen(ModalScreen[str]):
         self._set_editor_status(f"Düzenleniyor: {artist}. Enter ile kaydedin.")
 
     def action_delete_artist(self) -> None:
+        self._playlist_input_mode = None
         index = self._selected_artist_index()
         if index is None:
             self._set_editor_status("Silmek için bir sanatçı seçin.")
@@ -203,6 +369,7 @@ class ArtistEditorScreen(ModalScreen[str]):
             return
         self._dirty_genres.clear()
         self._editing_index = None
+        self._playlist_input_mode = None
         self._render_category_table()
         self._set_editor_status("Değişiklikler dosyalara kaydedildi.")
 
@@ -232,6 +399,8 @@ class ArtistEditorScreen(ModalScreen[str]):
 
         self._dirty_genres.clear()
         self._editing_index = None
+        self._playlist_input_mode = None
+        self.query_one("#artist-input", Input).value = ""
         self._render_category_table()
         if not self._artists:
             self._set_editor_status("Düzenlenecek sanatçı dosyası bulunamadı.")
@@ -245,7 +414,7 @@ class ArtistEditorScreen(ModalScreen[str]):
 
         if not genres:
             self._selected_genre = None
-            self.query_one("#artist-category", Static).update("Kategori seçilmedi")
+            self.query_one("#artist-category", Static).update("Playlist seçilmedi")
             self.query_one("#artist-path", Static).update("")
             self.query_one("#artist-list", DataTable).clear()
             return
@@ -261,6 +430,7 @@ class ArtistEditorScreen(ModalScreen[str]):
             return
         self._selected_genre = genre
         self._editing_index = None
+        self._playlist_input_mode = None
         path = self._artist_paths[genre]
         try:
             display_path = path.relative_to(self.config_path.parent)
@@ -289,7 +459,7 @@ class ArtistEditorScreen(ModalScreen[str]):
 
     def _add_artist(self) -> None:
         if self._selected_genre is None:
-            self._set_editor_status("Önce bir kategori seçin.")
+            self._set_editor_status("Önce bir playlist seçin.")
             return
         name = self.query_one("#artist-input", Input).value.strip()
         if not name or name.startswith("#"):
@@ -303,6 +473,7 @@ class ArtistEditorScreen(ModalScreen[str]):
         artists.sort(key=str.casefold)
         self._dirty_genres.add(self._selected_genre)
         self._editing_index = None
+        self._playlist_input_mode = None
         self.query_one("#artist-input", Input).value = ""
         self._render_category_table()
         self._set_editor_status(f"{name} eklendi. Değişikliği korumak için Kaydet'e basın.")
@@ -326,6 +497,7 @@ class ArtistEditorScreen(ModalScreen[str]):
         artists.sort(key=str.casefold)
         self._dirty_genres.add(self._selected_genre)
         self._editing_index = None
+        self._playlist_input_mode = None
         self.query_one("#artist-input", Input).value = ""
         self._render_category_table()
         self._set_editor_status(f"Sanatçı güncellendi: {name}")
@@ -410,7 +582,7 @@ class PlaylistBuilderApp(App[str]):
     BINDINGS = [
         ("d", "dry_run", "Dry-run"),
         ("b", "build", "Build"),
-        ("a", "edit_artists", "Sanatçı"),
+        ("a", "edit_artists", "Playlist"),
         ("r", "refresh", "Yenile"),
         ("q", "quit_app", "Çıkış"),
     ]
@@ -435,12 +607,12 @@ class PlaylistBuilderApp(App[str]):
                 yield Static(id="status")
                 yield Button("Dry-run planı", id="dry-run", variant="primary")
                 yield Button("Build / güncelle", id="build", variant="success")
-                yield Button("Sanatçıları düzenle", id="artists")
+                yield Button("Playlistleri düzenle", id="artists")
                 yield Button("OAuth kurulumu", id="oauth")
                 yield Button("Yenile", id="refresh")
                 yield Button("Çıkış", id="exit", variant="error")
             with Vertical(id="content"):
-                yield Static("Kategoriler", classes="section-title")
+                yield Static("Playlistler", classes="section-title")
                 yield DataTable(id="genres")
                 yield Static("Çıktı", classes="section-title")
                 yield Log(id="output")
@@ -448,7 +620,7 @@ class PlaylistBuilderApp(App[str]):
 
     def on_mount(self) -> None:
         table = self.query_one("#genres", DataTable)
-        table.add_columns("Kategori", "Sanatçı", "Durum")
+        table.add_columns("Playlist", "Sanatçı", "Durum")
         self._refresh_summary()
         self._write_log("Hazır. Dry-run için D, gerçek işlem için B tuşuna basın.")
 
@@ -558,7 +730,7 @@ class PlaylistBuilderApp(App[str]):
 
     def _after_artist_editor(self, _result: str | None) -> None:
         self._refresh_summary()
-        self._write_log("Sanatçı listeleri yenilendi.")
+        self._write_log("Playlist dosyaları yenilendi.")
 
     def _start_operation(self, *, dry_run: bool) -> None:
         if self._busy:
