@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 
+from textual.command import CommandList, CommandPalette
 from textual.widgets import DataTable, Footer, Input, Static
 
 from playlist_builder.artists import read_artist_file
@@ -46,6 +47,33 @@ def test_textual_app_loads_project_summary(tmp_path: Path) -> None:
 
     asyncio.run(scenario())
     assert app.return_value == "exit"
+
+
+def test_textual_command_palette_is_enabled_and_lists_app_actions(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+
+    async def scenario() -> None:
+        async with app.run_test(size=(120, 40)) as pilot:
+            assert app.ENABLE_COMMAND_PALETTE is True
+            assert "ctrl+p" in app.active_bindings
+            await pilot.pause()
+            assert len(app.query_one(Footer).query(".-command-palette")) == 1
+
+            await pilot.press("ctrl+p")
+            await pilot.pause(0.3)
+
+            assert CommandPalette.is_open(app)
+            command_list = app.screen.query_one(CommandList)
+            command_text = "\n".join(str(option.prompt) for option in command_list.options)
+            assert "Dry-run planını göster" in command_text
+            assert "Playlistleri düzenle" in command_text
+
+            await pilot.press("escape")
+            await pilot.pause()
+            assert not CommandPalette.is_open(app)
+
+    asyncio.run(scenario())
 
 
 def test_artist_editor_writes_selected_category_file(tmp_path: Path) -> None:

@@ -3,10 +3,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
+from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Log, Static
 
 from .artists import (
@@ -517,7 +517,7 @@ class PlaylistBuilderApp(App[str]):
     """Small keyboard-driven terminal UI around the existing build workflow."""
 
     TITLE = "YouTube Music Playlist Builder"
-    ENABLE_COMMAND_PALETTE = False
+    ENABLE_COMMAND_PALETTE = True
     CSS = """
     Screen {
         layout: vertical;
@@ -580,10 +580,19 @@ class PlaylistBuilderApp(App[str]):
     }
     """
     BINDINGS = [
-        ("d", "dry_run", "Dry-run"),
-        ("b", "build", "Build"),
-        ("a", "edit_artists", "Playlist"),
+        ("d", "dry_run", "Plan"),
+        ("b", "build", "Oluştur"),
+        ("a", "edit_artists", "Playlistler"),
         ("r", "refresh", "Yenile"),
+        Binding(
+            "ctrl+p",
+            "command_palette",
+            "Komutlar",
+            show=False,
+            key_display="Ctrl+P",
+            priority=True,
+            tooltip="Komut paletini aç",
+        ),
         ("q", "quit_app", "Çıkış"),
     ]
 
@@ -664,6 +673,32 @@ class PlaylistBuilderApp(App[str]):
             self._write_log("İşlem devam ederken çıkış yapılamaz.")
             return
         self.exit("exit")
+
+    def get_system_commands(self, screen: Screen):
+        """Add the app's primary actions to Textual's native command palette."""
+        yield from super().get_system_commands(screen)
+        if isinstance(screen, ArtistEditorScreen):
+            return
+        yield SystemCommand(
+            "Dry-run planını göster",
+            "Playlist oluşturmadan planı ve bulunacak parçaları gösterir.",
+            self.action_dry_run,
+        )
+        yield SystemCommand(
+            "Playlist oluştur / güncelle",
+            "Sanatçı dosyalarından playlistleri oluşturur veya günceller.",
+            self.action_build,
+        )
+        yield SystemCommand(
+            "Playlistleri düzenle",
+            "Playlist dosyalarını ve sanatçı listelerini düzenler.",
+            self.action_edit_artists,
+        )
+        yield SystemCommand(
+            "Projeyi yenile",
+            "Playlist dosyalarını yeniden okuyup özeti günceller.",
+            self.action_refresh,
+        )
 
     def _request_oauth(self) -> None:
         if self._busy:

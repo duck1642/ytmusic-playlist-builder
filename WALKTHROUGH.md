@@ -446,4 +446,30 @@ Hardcoded tür yapısını kaldırıp playlistleri kullanıcı tarafından dosya
 
 #### Notes
 - Verification: `pytest` → `43 passed`; `compileall`, `pip check`, CLI help, `git diff --check` ve gerçek PTY TUI smoke testi başarılı.
+
+### 2026-08-19T10:26+03:00
+
+#### Task
+TUI footer kısayollarını sadeleştirmek ve native command palette eklemek.
+
+#### Summary
+Textual’ın native command palette’i etkinleştirildi. Ana footer artık `D` plan, `B` oluştur/güncelle, `A` playlistler, `R` yenile, `Q` çıkış ve `Ctrl+P` komutlarını gösteriyor. Uygulamanın dry-run, build, playlist düzenleme ve yenileme aksiyonları palette içinde aranabilir hale getirildi.
+
+#### Affected Files
+- `src/playlist_builder/tui.py`
+- `tests/test_tui.py`
+- `README.md`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Özel bir palette yazılmadı; Textual’ın native palette’i ve `get_system_commands` genişletmesi kullanıldı.
+- `Ctrl+P` binding’i normal footer binding listesine tekrar eklenmeden, Textual’ın palette alanında tek kez gösterilecek şekilde tanımlandı.
+- OAuth ve playlist oluşturma çekirdeği değiştirilmedi.
+- Editör modalı açıkken ana ekran aksiyonları palette’e eklenmiyor; mevcut editör kısayolları korunuyor.
+
+#### Notes
+- Verification: `pytest` → `44 passed`; `compileall`, `pip check`, CLI help ve `git diff --check` başarılı.
+- Gerçek PTY smoke testinde footer taşmadan render edildi; `Ctrl+P` palette’i açıldı ve uygulama aksiyonları listelendi.
+- Sürüm `0.0.16` olarak hizalandı.
 - Mevcut eski dosyalar (`metal.txt` gibi) yeni adlandırma kuralıyla `metal` playlist kimliğine karşılık gelir. Eski YouTube playlistleri otomatik migrate veya delete edilmez.
