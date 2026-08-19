@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Sequence
 
@@ -20,6 +21,13 @@ def _state_key(name: str) -> str:
     return name.casefold().strip()
 
 
+def _emit(message: str, progress_fn: Callable[[str], None] | None) -> None:
+    if progress_fn is None:
+        print(message)
+    else:
+        progress_fn(message)
+
+
 def _log_report(log_path: Path, genre: str, report: PlaylistReport) -> None:
     event = "playlist_created" if report.created else "playlist_updated"
     append_event(
@@ -34,7 +42,12 @@ def _log_report(log_path: Path, genre: str, report: PlaylistReport) -> None:
     )
 
 
-def run(config_path: Path, *, dry_run: bool = False) -> int:
+def run(
+    config_path: Path,
+    *,
+    dry_run: bool = False,
+    progress_fn: Callable[[str], None] | None = None,
+) -> int:
     config = load_config(config_path)
     if config.auth_file is None:
         raise ConfigError("auth_file is required to build YouTube Music playlists")
@@ -52,6 +65,8 @@ def run(config_path: Path, *, dry_run: bool = False) -> int:
     errors = 0
 
     for genre, artist_names in artist_lists.items():
+        if progress_fn is not None:
+            progress_fn(f"{genre}: {len(artist_names)} sanatçı işlenecek")
         raw_tracks = []
         for artist_name in artist_names:
             key = _state_key(artist_name)
@@ -73,6 +88,8 @@ def run(config_path: Path, *, dry_run: bool = False) -> int:
                     channel_id=artist.channel_id,
                     track_count=len(artist_tracks),
                 )
+                if progress_fn is not None:
+                    progress_fn(f"{genre} / {artist_name}: {len(artist_tracks)} parça")
             except YtMusicError as error:
                 errors += 1
                 append_event(
@@ -82,6 +99,8 @@ def run(config_path: Path, *, dry_run: bool = False) -> int:
                     artist=artist_name,
                     error=str(error),
                 )
+                if progress_fn is not None:
+                    progress_fn(f"{genre} / {artist_name}: bulunamadı")
 
         chunks = prepare_tracks(raw_tracks, config.filters, config.playlist.max_tracks)
         reports = writer.sync_genre(
@@ -95,7 +114,10 @@ def run(config_path: Path, *, dry_run: bool = False) -> int:
             _log_report(log_path, genre, report)
         if not dry_run:
             save_state(state_path, state)
-        print(f"{genre}: {sum(len(report.added_video_ids) for report in reports)} new track(s)")
+        _emit(
+            f"{genre}: {sum(len(report.added_video_ids) for report in reports)} new track(s)",
+            progress_fn,
+        )
 
     if not dry_run:
         save_state(state_path, state)

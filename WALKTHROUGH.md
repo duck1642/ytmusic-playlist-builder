@@ -334,3 +334,30 @@ TLS 1.2 düzeltmesinden sonra devam eden OAuth device-code zaman aşımını ç�
 #### Notes
 - `auth/client_secret.json` dosyası yapısal olarak geçerli; hata OAuth client JSON dosyasından kaynaklanmıyor.
 - Verification: `pytest` → `33 passed`; `compileall` başarılı; gerçek tarayıcı OAuth akışı kullanıcı tarafından henüz yeniden denenmedi.
+
+### 2026-08-19T03:24+03:00
+
+#### Task
+Terminal menüsünü işlevsel ve tekrar kullanılabilir bir Textual arayüzüne dönüştürmek.
+
+#### Summary
+Eski input tabanlı menü yerine Windows Terminal uyumlu Textual uygulaması eklendi. Ana ekran OAuth durumunu, playlist ayarlarını ve kategori başına sanatçı sayılarını gösteriyor. Dry-run ve gerçek playlist işlemleri Textual worker içinde çalışıyor; işlem ilerlemesi canlı çıktı paneline aktarılıyor. Bloklayan OAuth device flow, arayüz kapatılarak mevcut terminal akışıyla çalıştırılıyor ve sonrasında arayüz yeniden açılıyor.
+
+#### Affected Files
+- `src/playlist_builder/tui.py`
+- `src/playlist_builder/cli.py`
+- `requirements.txt`
+- `tests/test_tui.py`
+- `README.md`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Core playlist ve API akışı korunacak; Textual yalnızca sunum katmanı olacak.
+- İlk iterasyonda sanatçı listeleri dosyalardan okunmaya devam edecek; arayüzde sanatçı düzenleme ayrı bir sonraki iterasyon konusu.
+- TUI çalışırken gerçek playlist yazma işlemi başlamadan önce mevcut akış korunacak; OAuth terminal girdisi Textual içine gömülmeyecek.
+- Paket sürümü bu iterasyon commit'i ile `0.0.12` olarak hizalanacak.
+
+#### Notes
+- Verification: `pytest` → `34 passed`; `compileall` başarılı; `pip check` bağımlılık sorunu bildirmedi.
+- Textual `8.2.8` sanal ortamda çalıştırılarak doğrulandı.

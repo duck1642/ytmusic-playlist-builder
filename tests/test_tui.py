@@ -1,47 +1,103 @@
+import asyncio
 from pathlib import Path
 
-from playlist_builder.tui import run_tui
+from textual.widgets import DataTable
+
+from playlist_builder.tui import PlaylistBuilderApp, run_tui
 
 
-def test_tui_routes_dry_run_and_build_choices() -> None:
-    choices = iter(["1", "2", "3", "4"])
-    calls: list[tuple[Path, bool]] = []
+def _write_config(tmp_path: Path) -> Path:
+    artists_dir = tmp_path / "artists"
+    artists_dir.mkdir()
+    (artists_dir / "rock.txt").write_text("Radiohead\n", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "\n".join(
+            (
+                "auth_file: auth/oauth.json",
+                "oauth_client_file: auth/client_secret.json",
+                "artists_dir: artists",
+                "state_dir: state",
+                "cache_dir: cache",
+                "logs_dir: logs",
+                "playlist:",
+                "  privacy: PRIVATE",
+                "  max_tracks: 550",
+                "  update_mode: append_only",
+                "filters:",
+                "  exclude_karaoke: true",
+            )
+        ),
+        encoding="utf-8",
+    )
+    return config_path
+
+
+def test_textual_app_loads_project_summary(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+
+    async def scenario() -> None:
+        async with app.run_test(size=(120, 40)) as pilot:
+            table = app.query_one("#genres", DataTable)
+            assert len(table.rows) == 1
+            await pilot.click("#exit")
+
+    asyncio.run(scenario())
+    assert app.return_value == "exit"
+
+
+def test_textual_app_runs_dry_run_in_worker(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    calls: list[bool] = []
+
+    def fake_run(
+        _config_path: Path,
+        *,
+        dry_run: bool,
+        progress_fn: object,
+    ) -> int:
+        calls.append(dry_run)
+        progress_fn("test progress")
+        return 0
+
+    app = PlaylistBuilderApp(config_path, run_fn=fake_run)
+
+    async def scenario() -> None:
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.click("#dry-run")
+            await pilot.pause(0.2)
+
+    asyncio.run(scenario())
+    assert calls == [True]
+    assert app._busy is False
+
+
+def test_run_tui_restarts_after_oauth(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    actions = iter(["oauth", "exit"])
     oauth_calls: list[Path] = []
     output: list[str] = []
 
-    def fake_run(config_path: Path, *, dry_run: bool) -> int:
-        calls.append((config_path, dry_run))
+    class FakeApp:
+        def __init__(self, _config_path: Path, *, run_fn: object) -> None:
+            self.run_fn = run_fn
+
+        def run(self) -> str:
+            return next(actions)
+
+    def fake_setup(config: Path) -> int:
+        oauth_calls.append(config)
         return 0
 
-    def fake_setup_oauth(config_path: Path) -> int:
-        oauth_calls.append(config_path)
-        return 0
-
-    result = run_tui(
-        Path("config.yaml"),
-        input_fn=lambda _prompt: next(choices),
-        output_fn=output.append,
-        run_fn=fake_run,
-        setup_oauth_fn=fake_setup_oauth,
+    assert (
+        run_tui(
+            config_path,
+            output_fn=output.append,
+            setup_oauth_fn=fake_setup,
+            app_factory=FakeApp,
+        )
+        == 0
     )
-
-    assert result == 0
-    assert calls == [(Path("config.yaml"), True), (Path("config.yaml"), False)]
-    assert oauth_calls == [Path("config.yaml")]
-    assert any("OAuth" in line for line in output)
-    assert any("Dry-run" in line for line in output)
-    assert any("oluşturma/güncelleme" in line for line in output)
-
-
-def test_tui_ignores_invalid_choice_and_exits_on_eof() -> None:
-    choices = iter(["x"])
-    output: list[str] = []
-
-    def input_fn(_prompt: str) -> str:
-        try:
-            return next(choices)
-        except StopIteration as error:
-            raise EOFError from error
-
-    assert run_tui(Path("config.yaml"), input_fn=input_fn, output_fn=output.append) == 0
-    assert any("Geçersiz" in line for line in output)
+    assert oauth_calls == [config_path]
+    assert output == ["OAuth kurulumu başlıyor...", "OAuth kurulumu tamamlandı."]
