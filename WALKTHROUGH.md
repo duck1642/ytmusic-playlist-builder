@@ -387,3 +387,32 @@ PTY ve Textual `run_test` ölçümleriyle küçük ve orta terminal boyutları k
 - `palette` kısayolu ve Header'daki varsayılan daire simgesi kaldırıldı; buton metinleri dar genişliklere sığacak şekilde kısaltıldı.
 - Verification: `pytest` → `35 passed`; `compileall`, `pip check`, CLI help, `git diff --check` ve gerçek PTY TUI smoke testi başarılı.
 - OAuth akışı bu iterasyonda çalıştırılmadı ve OAuth dosyaları değiştirilmedi.
+
+### 2026-08-19T04:16+03:00
+
+#### Task
+Sanatçı listelerini dosya düzenlemeden TUI içinden yönetebilmek.
+
+#### Summary
+Kategori seçimi ile doğru `artists/<kategori>.txt` dosyasını hedefleyen bir modal sanatçı editörü eklendi. Sanatçılar TUI içinde eklenebiliyor, düzenlenebiliyor ve silinebiliyor; değişiklikler açıkça kaydedilene kadar bellekte tutuluyor. Ana ekrana dönüldüğünde kategori sayıları yenileniyor ve mevcut dry-run/build akışı kullanılmaya devam ediyor.
+
+#### Affected Files
+- `src/playlist_builder/artists.py`
+- `src/playlist_builder/tui.py`
+- `tests/test_artists.py`
+- `tests/test_tui.py`
+- `README.md`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- İç kategori anahtarı dosya adının uzantısız hali; dosya hedefi `config.artists_dir` altında bu anahtarla eşleştirilecek.
+- Görünen kategori etiketi ayrı tutulacak; örneğin `hip_hop_rap` için ekran ve playlist adı `HIP-HOP / RAP` olacak.
+- `artists/*.txt` kaynak gerçekliği olmaya devam edecek; TUI değişiklikleri ekle/düzenle/sil sonrası `Kaydet` ile diske yazacak.
+- Kaydedilmemiş değişiklik varken yeniden yükleme veya editörden çıkış engellenecek.
+- OAuth ve playlist çekirdeği değiştirilmedi; sürüm `0.0.14` olarak hizalandı.
+
+#### Notes
+- Kanıt: `hip_hop_rap` seçimi `artists\\hip_hop_rap.txt` dosyasını gösteriyor; playlist adı mevcut `HIP-HOP / RAP - RAW` kuralıyla korunuyor.
+- Editör düzeni `80x24`, `100x30` ve `120x35` terminal ölçülerinde ölçüldü; düğmeler ekran dışına taşmıyor.
+- Verification: `pytest` → `40 passed`; `compileall`, `pip check`, CLI help, `git diff --check` ve PTY smoke testi başarılı.

@@ -15,13 +15,13 @@ Sanatçıları ekle → Albüm/single kataloglarını al → Filtrele ve sırala
 
 1. `requirements.txt` içindeki bağımlılıkları kurun.
 2. `config.example.yaml` dosyasını `config.yaml` olarak kopyalayın.
-3. `artists/*.txt` dosyalarına her satıra bir sanatçı gelecek şekilde isimleri yazın.
+3. Sanatçıları `artists/*.txt` dosyalarına yazın veya TUI içindeki `Sanatçıları düzenle` ekranını kullanın.
 4. Google Cloud'dan indirdiğiniz OAuth client JSON dosyasını `auth/client_secret.json` olarak kaydedin.
 5. OAuth tokenını oluşturun: `.venv\Scripts\python.exe build_playlists.py --setup-oauth`.
 6. Önce planı kontrol edin: `.venv\Scripts\python.exe build_playlists.py --dry-run`.
 7. Playlistleri oluşturun/güncelleyin: `.venv\Scripts\python.exe build_playlists.py`.
 
-Menüyle kullanmak için Windows'ta `run.bat` dosyasına çift tıklayın. Textual tabanlı arayüz OAuth durumunu, kategori özetini ve canlı işlem çıktısını gösterir. `D` dry-run, `B` playlist oluşturma/güncelleme, `R` yenileme ve `Q` çıkış tuşlarıdır. OAuth düğmesi, bloklayan Google akışı için arayüzü geçici olarak kapatır ve işlem bitince yeniden açar. Terminalden aynı arayüz `.venv\Scripts\python.exe build_playlists.py --tui` ile açılır.
+Menüyle kullanmak için Windows'ta `run.bat` dosyasına çift tıklayın. Textual tabanlı arayüz OAuth durumunu, kategori özetini ve canlı işlem çıktısını gösterir. `D` dry-run, `B` playlist oluşturma/güncelleme, `A` sanatçı listelerini düzenleme, `R` yenileme ve `Q` çıkış tuşlarıdır. Sanatçı editöründe kategori seçip sanatçı ekleyebilir, düzenleyebilir, silebilir ve `S` ile ilgili `artists/<kategori>.txt` dosyasına kaydedebilirsiniz. OAuth düğmesi, bloklayan Google akışı için arayüzü geçici olarak kapatır ve işlem bitince yeniden açar. Terminalden aynı arayüz `.venv\Scripts\python.exe build_playlists.py --tui` ile açılır.
 
 Tekrar çalıştırmak güvenlidir. `append_only` modu yeni parçaları ekler; YouTube Music'te manuel sildiğiniz parçaları state üzerinden geri eklemez. `state/build_state.json` çalışma durumunu, `logs/build.jsonl` olayları tutar; bu dosyalar Git'e alınmaz.
 

@@ -1,8 +1,9 @@
 import asyncio
 from pathlib import Path
 
-from textual.widgets import DataTable, Footer
+from textual.widgets import DataTable, Footer, Input, Static
 
+from playlist_builder.artists import read_artist_file
 from playlist_builder.tui import PlaylistBuilderApp, run_tui
 
 
@@ -45,6 +46,100 @@ def test_textual_app_loads_project_summary(tmp_path: Path) -> None:
 
     asyncio.run(scenario())
     assert app.return_value == "exit"
+
+
+def test_artist_editor_writes_selected_category_file(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    hip_hop_file = tmp_path / "artists" / "hip_hop_rap.txt"
+    hip_hop_file.write_text("", encoding="utf-8")
+
+    app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+
+    async def scenario() -> None:
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.click("#artists")
+            await pilot.pause()
+
+            path = app.screen.query_one("#artist-path", Static)
+            category = app.screen.query_one("#artist-category", Static)
+            assert str(category.render()) == "HIP-HOP / RAP"
+            assert str(path.render()) == f"Dosya: {Path('artists') / 'hip_hop_rap.txt'}"
+
+            artist_input = app.screen.query_one("#artist-input", Input)
+            artist_input.value = "Run-DMC"
+            await pilot.click("#artist-add")
+            assert read_artist_file(hip_hop_file) == []
+
+            await pilot.click("#artist-save")
+            assert read_artist_file(hip_hop_file) == ["Run-DMC"]
+            await pilot.click("#artist-close")
+
+    asyncio.run(scenario())
+
+
+def test_artist_editor_layout_fits_common_terminal_sizes(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+
+    async def scenario() -> None:
+        for size in ((80, 24), (120, 35)):
+            app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+            async with app.run_test(size=size) as pilot:
+                await pilot.click("#artists")
+                await pilot.pause()
+
+                screen = app.screen
+                footer = screen.query_one(Footer).region
+                body = screen.query_one("#editor-body").region
+                columns = screen.query_one("#editor-columns").region
+                artist_input = screen.query_one("#artist-input").region
+                actions = screen.query_one("#editor-actions").region
+                status = screen.query_one("#editor-status").region
+
+                assert body.bottom <= footer.y
+                assert columns.bottom <= artist_input.y
+                assert artist_input.bottom <= actions.y
+                assert status.bottom <= footer.y
+                for button_id in (
+                    "artist-add",
+                    "artist-edit",
+                    "artist-delete",
+                    "artist-save",
+                    "artist-close",
+                ):
+                    assert screen.query_one(f"#{button_id}").region.right <= size[0]
+
+                screen.dismiss("closed")
+
+    asyncio.run(scenario())
+
+
+def test_artist_editor_can_edit_and_delete_before_saving(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    artist_file = tmp_path / "artists" / "rock.txt"
+    app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+
+    async def scenario() -> None:
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.click("#artists")
+            await pilot.pause()
+            screen = app.screen
+            artist_table = screen.query_one("#artist-list", DataTable)
+            artist_table.move_cursor(row=0, column=0, animate=False)
+            await pilot.click("#artist-edit")
+            screen.query_one("#artist-input", Input).value = "The Smile"
+            await pilot.press("enter")
+
+            assert read_artist_file(artist_file) == ["Radiohead"]
+            screen.query_one("#artist-input", Input).value = "Deftones"
+            await pilot.click("#artist-add")
+            artist_table.move_cursor(row=0, column=0, animate=False)
+            await pilot.click("#artist-delete")
+            await pilot.click("#artist-save")
+
+            assert read_artist_file(artist_file) == ["The Smile"]
+            await pilot.click("#artist-close")
+
+    asyncio.run(scenario())
 
 
 def test_textual_layout_fits_common_terminal_sizes(tmp_path: Path) -> None:

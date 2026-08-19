@@ -5,9 +5,10 @@ from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.widgets import Button, DataTable, Footer, Header, Log, Static
+from textual.screen import ModalScreen
+from textual.widgets import Button, DataTable, Footer, Header, Input, Log, Static
 
-from .artists import read_artist_lists
+from .artists import artist_file_paths, read_artist_lists, write_artist_file
 from .auth import AuthError
 from .config import ConfigError, load_config
 from .playlists import genre_label
@@ -16,6 +17,328 @@ from .playlists import genre_label
 RunFunction = Callable[..., int]
 SetupOAuthFunction = Callable[[Path], int]
 AppFactory = Callable[..., "PlaylistBuilderApp"]
+
+
+class ArtistEditorScreen(ModalScreen[str]):
+    """Edit the existing category artist files without leaving the TUI."""
+
+    CSS = """
+    ModalScreen {
+        background: $background;
+    }
+
+    #editor-body {
+        height: 1fr;
+        padding: 1;
+    }
+
+    #editor-heading {
+        margin: 0 0 1 0;
+    }
+
+    #editor-columns {
+        height: 1fr;
+        min-height: 8;
+    }
+
+    #editor-categories {
+        width: 34;
+        min-width: 28;
+        margin: 0 1 0 0;
+        padding: 1;
+        border: round $panel;
+    }
+
+    #editor-artists {
+        width: 1fr;
+        padding: 1;
+        border: round $panel;
+    }
+
+    #artist-categories,
+    #artist-list {
+        height: 1fr;
+        min-height: 4;
+    }
+
+    #artist-path {
+        height: auto;
+        margin: 0 0 1 0;
+        color: $text-muted;
+    }
+
+    #artist-input {
+        margin: 1 0;
+    }
+
+    #editor-actions {
+        height: 3;
+    }
+
+    #editor-actions Button {
+        width: 1fr;
+        min-width: 8;
+        margin: 0 1 0 0;
+    }
+
+    #editor-status {
+        height: 2;
+        padding: 0 1;
+    }
+    """
+    BINDINGS = [
+        ("a", "focus_artist_input", "Ekle"),
+        ("e", "edit_artist", "Düzenle"),
+        ("x", "delete_artist", "Sil"),
+        ("s", "save_artists", "Kaydet"),
+        ("r", "reload_artists", "Diskten yükle"),
+        ("escape", "close_editor", "Kapat"),
+    ]
+
+    def __init__(self, config_path: Path, *, initial_genre: str | None = None) -> None:
+        super().__init__()
+        self.config_path = config_path
+        self.initial_genre = initial_genre
+        self._artists: dict[str, list[str]] = {}
+        self._artist_paths: dict[str, Path] = {}
+        self._selected_genre: str | None = None
+        self._dirty_genres: set[str] = set()
+        self._editing_index: int | None = None
+
+    def compose(self) -> ComposeResult:
+        yield Header(icon=" ")
+        with Vertical(id="editor-body"):
+            yield Static("Sanatçı listelerini düzenle", id="editor-heading", classes="section-title")
+            with Horizontal(id="editor-columns"):
+                with Vertical(id="editor-categories"):
+                    yield Static("Kategoriler", classes="section-title")
+                    yield DataTable(id="artist-categories")
+                with Vertical(id="editor-artists"):
+                    yield Static(id="artist-category", classes="section-title")
+                    yield Static(id="artist-path")
+                    yield DataTable(id="artist-list")
+            yield Input(
+                placeholder="Sanatçı adı yazın; Enter ile ekleyin veya düzenleyin",
+                id="artist-input",
+            )
+            with Horizontal(id="editor-actions"):
+                yield Button("Ekle", id="artist-add", variant="primary")
+                yield Button("Düzenle", id="artist-edit")
+                yield Button("Sil", id="artist-delete", variant="error")
+                yield Button("Kaydet", id="artist-save", variant="success")
+                yield Button("Kapat", id="artist-close")
+            yield Static(id="editor-status")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self.query_one("#artist-categories", DataTable).add_columns("Kategori", "Sanatçı")
+        self.query_one("#artist-list", DataTable).add_column("Sanatçı")
+        self._reload_from_disk()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        actions = {
+            "artist-add": self._add_artist,
+            "artist-edit": self.action_edit_artist,
+            "artist-delete": self.action_delete_artist,
+            "artist-save": self.action_save_artists,
+            "artist-close": self.action_close_editor,
+        }
+        action = actions.get(event.button.id or "")
+        if action is not None:
+            action()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id != "artist-input":
+            return
+        if self._editing_index is None:
+            self._add_artist()
+        else:
+            self._apply_artist_edit()
+
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if event.data_table.id == "artist-categories":
+            self._select_genre(event.row_key.value)
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        if event.data_table.id == "artist-categories":
+            self._select_genre(event.row_key.value)
+
+    def action_focus_artist_input(self) -> None:
+        if self._selected_genre is not None:
+            self.query_one("#artist-input", Input).focus()
+
+    def action_edit_artist(self) -> None:
+        index = self._selected_artist_index()
+        if index is None:
+            self._set_editor_status("Düzenlemek için bir sanatçı seçin.")
+            return
+        self._editing_index = index
+        artist = self._artists[self._selected_genre or ""][index]
+        artist_input = self.query_one("#artist-input", Input)
+        artist_input.value = artist
+        artist_input.focus()
+        self._set_editor_status(f"Düzenleniyor: {artist}. Enter ile kaydedin.")
+
+    def action_delete_artist(self) -> None:
+        index = self._selected_artist_index()
+        if index is None:
+            self._set_editor_status("Silmek için bir sanatçı seçin.")
+            return
+        genre = self._selected_genre or ""
+        artist = self._artists[genre].pop(index)
+        self._dirty_genres.add(genre)
+        self._editing_index = None
+        self._render_artist_list()
+        self._set_editor_status(f"{artist} silindi. Değişikliği korumak için Kaydet'e basın.")
+
+    def action_save_artists(self) -> None:
+        if not self._dirty_genres:
+            self._set_editor_status("Kaydedilecek değişiklik yok.")
+            return
+        try:
+            for genre in sorted(self._dirty_genres):
+                write_artist_file(self._artist_paths[genre], self._artists[genre])
+        except (KeyError, OSError) as error:
+            self._set_editor_status(f"Kaydetme hatası: {error}")
+            return
+        self._dirty_genres.clear()
+        self._editing_index = None
+        self._render_category_table()
+        self._set_editor_status("Değişiklikler dosyalara kaydedildi.")
+
+    def action_reload_artists(self) -> None:
+        if self._dirty_genres:
+            self._set_editor_status("Kaydedilmemiş değişiklik var; önce Kaydet'e basın.")
+            return
+        self._reload_from_disk()
+
+    def action_close_editor(self) -> None:
+        if self._dirty_genres:
+            self._set_editor_status("Kaydedilmemiş değişiklik var; önce Kaydet'e basın.")
+            return
+        self.dismiss("closed")
+
+    def _reload_from_disk(self) -> None:
+        try:
+            config = load_config(self.config_path)
+            self._artist_paths = artist_file_paths(config.artists_dir)
+            self._artists = read_artist_lists(config.artists_dir)
+        except (ConfigError, OSError) as error:
+            self._artists = {}
+            self._artist_paths = {}
+            self._set_editor_status(f"Yapılandırma hatası: {error}")
+            self._render_category_table()
+            return
+
+        self._dirty_genres.clear()
+        self._editing_index = None
+        self._render_category_table()
+        if not self._artists:
+            self._set_editor_status("Düzenlenecek sanatçı dosyası bulunamadı.")
+
+    def _render_category_table(self) -> None:
+        table = self.query_one("#artist-categories", DataTable)
+        table.clear()
+        genres = list(self._artists)
+        for genre in genres:
+            table.add_row(genre_label(genre), str(len(self._artists[genre])), key=genre)
+
+        if not genres:
+            self._selected_genre = None
+            self.query_one("#artist-category", Static).update("Kategori seçilmedi")
+            self.query_one("#artist-path", Static).update("")
+            self.query_one("#artist-list", DataTable).clear()
+            return
+
+        selected = self._selected_genre
+        if selected not in genres:
+            selected = self.initial_genre if self.initial_genre in genres else genres[0]
+        table.move_cursor(row=genres.index(selected), column=0, animate=False)
+        self._select_genre(selected)
+
+    def _select_genre(self, genre: str) -> None:
+        if genre not in self._artists:
+            return
+        self._selected_genre = genre
+        self._editing_index = None
+        path = self._artist_paths[genre]
+        try:
+            display_path = path.relative_to(self.config_path.parent)
+        except ValueError:
+            display_path = path
+        self.query_one("#artist-category", Static).update(genre_label(genre))
+        self.query_one("#artist-path", Static).update(f"Dosya: {display_path}")
+        self._render_artist_list()
+
+    def _render_artist_list(self) -> None:
+        table = self.query_one("#artist-list", DataTable)
+        table.clear()
+        if self._selected_genre is None:
+            return
+        for index, artist in enumerate(self._artists[self._selected_genre]):
+            table.add_row(artist, key=str(index))
+        self._update_editor_status()
+
+    def _selected_artist_index(self) -> int | None:
+        if self._selected_genre is None:
+            return None
+        index = self.query_one("#artist-list", DataTable).cursor_row
+        if index < 0 or index >= len(self._artists[self._selected_genre]):
+            return None
+        return index
+
+    def _add_artist(self) -> None:
+        if self._selected_genre is None:
+            self._set_editor_status("Önce bir kategori seçin.")
+            return
+        name = self.query_one("#artist-input", Input).value.strip()
+        if not name or name.startswith("#"):
+            self._set_editor_status("Geçerli bir sanatçı adı yazın.")
+            return
+        artists = self._artists[self._selected_genre]
+        if any(artist.casefold() == name.casefold() for artist in artists):
+            self._set_editor_status(f"Sanatçı zaten listede: {name}")
+            return
+        artists.append(name)
+        artists.sort(key=str.casefold)
+        self._dirty_genres.add(self._selected_genre)
+        self._editing_index = None
+        self.query_one("#artist-input", Input).value = ""
+        self._render_category_table()
+        self._set_editor_status(f"{name} eklendi. Değişikliği korumak için Kaydet'e basın.")
+
+    def _apply_artist_edit(self) -> None:
+        if self._selected_genre is None or self._editing_index is None:
+            return
+        name = self.query_one("#artist-input", Input).value.strip()
+        if not name or name.startswith("#"):
+            self._set_editor_status("Geçerli bir sanatçı adı yazın.")
+            return
+        artists = self._artists[self._selected_genre]
+        index = self._editing_index
+        if any(
+            position != index and artist.casefold() == name.casefold()
+            for position, artist in enumerate(artists)
+        ):
+            self._set_editor_status(f"Sanatçı zaten listede: {name}")
+            return
+        artists[index] = name
+        artists.sort(key=str.casefold)
+        self._dirty_genres.add(self._selected_genre)
+        self._editing_index = None
+        self.query_one("#artist-input", Input).value = ""
+        self._render_category_table()
+        self._set_editor_status(f"Sanatçı güncellendi: {name}")
+
+    def _set_editor_status(self, message: str) -> None:
+        self.query_one("#editor-status", Static).update(message)
+
+    def _update_editor_status(self) -> None:
+        if self._selected_genre is None:
+            return
+        state = "kaydedilmemiş değişiklik var" if self._selected_genre in self._dirty_genres else "kaydedildi"
+        count = len(self._artists[self._selected_genre])
+        self._set_editor_status(f"{count} sanatçı — {state}")
 
 
 class PlaylistBuilderApp(App[str]):
@@ -75,10 +398,19 @@ class PlaylistBuilderApp(App[str]):
         width: 100%;
         margin: 0 0 1 0;
     }
+
+    #sidebar #exit {
+        margin: 0;
+    }
+
+    #sidebar #refresh {
+        margin-bottom: 0;
+    }
     """
     BINDINGS = [
         ("d", "dry_run", "Dry-run"),
         ("b", "build", "Build"),
+        ("a", "edit_artists", "Sanatçı"),
         ("r", "refresh", "Yenile"),
         ("q", "quit_app", "Çıkış"),
     ]
@@ -93,6 +425,7 @@ class PlaylistBuilderApp(App[str]):
         self.config_path = config_path
         self.run_fn = run_fn
         self._busy = False
+        self._genre_keys: list[str] = []
 
     def compose(self) -> ComposeResult:
         yield Header(icon=" ")
@@ -102,6 +435,7 @@ class PlaylistBuilderApp(App[str]):
                 yield Static(id="status")
                 yield Button("Dry-run planı", id="dry-run", variant="primary")
                 yield Button("Build / güncelle", id="build", variant="success")
+                yield Button("Sanatçıları düzenle", id="artists")
                 yield Button("OAuth kurulumu", id="oauth")
                 yield Button("Yenile", id="refresh")
                 yield Button("Çıkış", id="exit", variant="error")
@@ -124,6 +458,8 @@ class PlaylistBuilderApp(App[str]):
             self.action_dry_run()
         elif button_id == "build":
             self.action_build()
+        elif button_id == "artists":
+            self.action_edit_artists()
         elif button_id == "oauth":
             self._request_oauth()
         elif button_id == "refresh":
@@ -143,6 +479,14 @@ class PlaylistBuilderApp(App[str]):
         self._refresh_summary()
         self._write_log("Proje bilgileri yenilendi.")
 
+    def action_edit_artists(self) -> None:
+        if self._busy:
+            return
+        self.push_screen(
+            ArtistEditorScreen(self.config_path, initial_genre=self._selected_genre()),
+            self._after_artist_editor,
+        )
+
     def action_quit_app(self) -> None:
         if self._busy:
             self._write_log("İşlem devam ederken çıkış yapılamaz.")
@@ -159,6 +503,7 @@ class PlaylistBuilderApp(App[str]):
         status = self.query_one("#status", Static)
         table = self.query_one("#genres", DataTable)
         table.clear()
+        self._genre_keys = []
 
         try:
             config = load_config(self.config_path)
@@ -196,11 +541,24 @@ class PlaylistBuilderApp(App[str]):
             table.add_row("-", "0", "Sanatçı dosyası yok")
             return
         for genre, artists in artist_lists.items():
+            self._genre_keys.append(genre)
             table.add_row(
                 genre_label(genre),
                 str(len(artists)),
                 "Hazır" if artists else "Boş",
+                key=genre,
             )
+
+    def _selected_genre(self) -> str | None:
+        table = self.query_one("#genres", DataTable)
+        row = table.cursor_row
+        if row < 0 or row >= len(self._genre_keys):
+            return None
+        return self._genre_keys[row]
+
+    def _after_artist_editor(self, _result: str | None) -> None:
+        self._refresh_summary()
+        self._write_log("Sanatçı listeleri yenilendi.")
 
     def _start_operation(self, *, dry_run: bool) -> None:
         if self._busy:
@@ -244,7 +602,7 @@ class PlaylistBuilderApp(App[str]):
         self._refresh_summary()
 
     def _set_action_buttons(self, *, disabled: bool) -> None:
-        for button_id in ("dry-run", "build", "oauth", "refresh", "exit"):
+        for button_id in ("dry-run", "build", "artists", "oauth", "refresh", "exit"):
             self.query_one(f"#{button_id}", Button).disabled = disabled
 
     def _write_log(self, message: str) -> None:
