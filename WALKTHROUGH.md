@@ -525,3 +525,31 @@ Textual'ın varsayılan Windows sürücüsü yerine proje içi bir sürücü ba�
 - Verification: `pytest` → `47 passed`; `compileall`, `pip check` ve `git diff --check` başarılı.
 - Gerçek PTY smoke testinde `?1003h` gönderilmedi; uygulama `q` ile temiz kapanıp mouse modlarını kapattı.
 - Sürüm `0.0.18` olarak hizalandı.
+
+### 2026-08-22T01:55+03:00
+
+#### Task
+Projeyi GitHub üzerinden yayınlamaya hazırlamak ve bilinçli artist listesi temizliğini kaydetmek.
+
+#### Summary
+Varsayılan altı artist playlist dosyası kaldırıldı; mevcut `artists/rock.txt` korundu. Yerel OAuth/config/state/cache/log dosyalarının GitHub'a gitmemesi için mevcut ignore kuralları doğrulandı. Kod sürümü `0.0.19` olarak hizalandı.
+
+#### Affected Files
+- `artists/ambient_classical.txt`
+- `artists/electronic_drive.txt`
+- `artists/electronic_focus.txt`
+- `artists/hip_hop_rap.txt`
+- `artists/jazz_soul_funk.txt`
+- `artists/metal.txt`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Altı dosyanın silinmesi bilinçli kabul edildi; `rock.txt` mevcut başlangıç listesi olarak kaldı.
+- GitHub repository'si private tutulacak; OAuth credentials ve yerel çalışma verileri publish edilmeyecek.
+- GitHub remote'u yerelde eklenmedi; publish işlemi uygulama üzerinden yapılacak.
+
+#### Notes
+- Verification: `pytest` → `47 passed`; `compileall`, `pip check` ve `git diff --check` başarılı.
+- Takip edilen dosyalar arasında gerçek secret bulunmadı; `client_secret` referansları yalnızca örnek/kod/test içeriği.
+- Sürüm `0.0.19` olarak hizalandı.
