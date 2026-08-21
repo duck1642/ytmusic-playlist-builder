@@ -4,6 +4,7 @@ import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import unquote, urlparse
 
 
 class YtMusicError(RuntimeError):
@@ -15,6 +16,88 @@ class ArtistReference:
     requested_name: str
     display_name: str
     channel_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class ArtistInput:
+    """One artist-list entry in name, URL, or name-plus-URL form."""
+
+    raw: str
+    display_name: str | None = None
+    url: str | None = None
+    channel_id: str | None = None
+    handle: str | None = None
+
+    @property
+    def label(self) -> str:
+        return self.display_name or self.handle or self.channel_id or self.raw
+
+
+_YOUTUBE_HOSTS = frozenset(
+    {
+        "music.youtube.com",
+        "www.music.youtube.com",
+        "youtube.com",
+        "www.youtube.com",
+    }
+)
+
+
+def parse_artist_input(value: str) -> ArtistInput:
+    """Parse a plain artist name, an artist URL, or ``name | URL``."""
+
+    raw = value.strip()
+    if not raw or raw.startswith("#"):
+        raise YtMusicError("Artist input cannot be empty or a comment")
+
+    display_name: str | None = None
+    candidate = raw
+    if "|" in raw:
+        name_part, url_part = raw.split("|", 1)
+        display_name = name_part.strip()
+        candidate = url_part.strip()
+        if not display_name:
+            raise YtMusicError(f"Artist name is missing before '|': {raw}")
+        if not candidate:
+            raise YtMusicError(f"Artist URL is missing after '|': {raw}")
+
+    if not candidate.startswith(("http://", "https://")):
+        if "|" in raw:
+            raise YtMusicError(f"Artist URL must be an http(s) URL: {candidate}")
+        return ArtistInput(raw=raw, display_name=display_name or raw)
+
+    parsed = urlparse(candidate)
+    hostname = (parsed.hostname or "").casefold()
+    if parsed.scheme not in {"http", "https"} or hostname not in _YOUTUBE_HOSTS:
+        raise YtMusicError(f"Unsupported YouTube artist URL: {candidate}")
+
+    path = unquote(parsed.path).rstrip("/")
+    if path.startswith("/channel/"):
+        channel_id = path.removeprefix("/channel/").strip("/")
+        if not channel_id or "/" in channel_id:
+            raise YtMusicError(f"YouTube channel ID is missing from URL: {candidate}")
+        return ArtistInput(
+            raw=raw,
+            display_name=display_name,
+            url=candidate,
+            channel_id=channel_id,
+        )
+
+    if path.startswith("/@"):
+        handle = path.removeprefix("/@").strip("/")
+        if not handle or "/" in handle:
+            raise YtMusicError(f"YouTube handle is missing from URL: {candidate}")
+        return ArtistInput(
+            raw=raw,
+            display_name=display_name,
+            url=candidate,
+            handle=handle,
+        )
+
+    raise YtMusicError(
+        "Artist URL must use /@handle or /channel/<channel-id>: "
+        f"{candidate}"
+    )
 
 
 def _normalise(value: str) -> str:
@@ -99,7 +182,16 @@ class YtMusicAdapter:
             )
         return cls(client)
 
-    def resolve_artist(self, name: str) -> ArtistReference:
+    def resolve_artist(self, value: str | ArtistInput) -> ArtistReference:
+        artist_input = parse_artist_input(value) if isinstance(value, str) else value
+        if artist_input.channel_id is not None:
+            return ArtistReference(
+                artist_input.raw,
+                artist_input.label,
+                artist_input.channel_id,
+            )
+
+        name = artist_input.display_name or artist_input.handle or artist_input.raw
         results = self._call(
             "Artist search",
             self.client.search,
@@ -119,7 +211,11 @@ class YtMusicAdapter:
             if display_name is None or channel_id is None:
                 continue
             if _normalise(display_name) == _normalise(name):
-                exact_matches[channel_id] = ArtistReference(name, display_name, channel_id)
+                exact_matches[channel_id] = ArtistReference(
+                    artist_input.raw,
+                    display_name,
+                    channel_id,
+                )
 
         if len(exact_matches) != 1:
             if not exact_matches:

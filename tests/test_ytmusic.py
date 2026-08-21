@@ -1,7 +1,12 @@
 import pytest
 import ytmusicapi
 
-from playlist_builder.ytmusic import ArtistReference, YtMusicAdapter, YtMusicError
+from playlist_builder.ytmusic import (
+    ArtistReference,
+    YtMusicAdapter,
+    YtMusicError,
+    parse_artist_input,
+)
 
 
 class FakeYtMusic:
@@ -39,6 +44,63 @@ def test_resolve_artist_uses_exact_artist_match() -> None:
 
     assert result == ArtistReference(requested_name="Gojira", display_name="Gojira", channel_id="UC-GOJIRA")
     assert client.calls == [("search", "Gojira", "artists", 10)]
+
+
+def test_parse_artist_input_accepts_name_url_and_url_only_forms() -> None:
+    assert parse_artist_input("Radiohead").display_name == "Radiohead"
+
+    named = parse_artist_input(
+        "Radiohead | https://music.youtube.com/@radiohead?si=example"
+    )
+    assert named.display_name == "Radiohead"
+    assert named.handle == "radiohead"
+    assert named.url == "https://music.youtube.com/@radiohead?si=example"
+
+    channel = parse_artist_input(
+        "https://music.youtube.com/channel/UC-RADIOHEAD?si=example"
+    )
+    assert channel.display_name is None
+    assert channel.channel_id == "UC-RADIOHEAD"
+
+
+def test_resolve_artist_uses_channel_url_without_search() -> None:
+    client = FakeYtMusic()
+    adapter = YtMusicAdapter(client)
+
+    result = adapter.resolve_artist(
+        "Radiohead | https://music.youtube.com/channel/UC-RADIOHEAD"
+    )
+
+    assert result == ArtistReference(
+        requested_name="Radiohead | https://music.youtube.com/channel/UC-RADIOHEAD",
+        display_name="Radiohead",
+        channel_id="UC-RADIOHEAD",
+    )
+    assert client.calls == []
+
+
+def test_resolve_artist_uses_handle_as_search_fallback() -> None:
+    class HandleClient(FakeYtMusic):
+        def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
+            self.calls.append(("search", query, filter, limit))
+            return [{"resultType": "artist", "browseId": "UC-RADIOHEAD", "artist": "Radiohead"}]
+
+    client = HandleClient()
+    result = YtMusicAdapter(client).resolve_artist(
+        "https://music.youtube.com/@radiohead"
+    )
+
+    assert result == ArtistReference(
+        requested_name="https://music.youtube.com/@radiohead",
+        display_name="Radiohead",
+        channel_id="UC-RADIOHEAD",
+    )
+    assert client.calls == [("search", "radiohead", "artists", 10)]
+
+
+def test_parse_artist_input_rejects_unsupported_url_shape() -> None:
+    with pytest.raises(YtMusicError, match="must use /@handle"):
+        parse_artist_input("https://music.youtube.com/watch?v=video")
 
 
 def test_resolve_artist_rejects_missing_exact_match() -> None:

@@ -14,7 +14,7 @@ from .events import append_event
 from .playlists import PlaylistReport, PlaylistWriter
 from .processing import prepare_tracks
 from .state import BuildState, StateError, load_state, save_state
-from .ytmusic import ArtistReference, YtMusicAdapter, YtMusicError
+from .ytmusic import ArtistReference, YtMusicAdapter, YtMusicError, parse_artist_input
 
 
 def _state_key(name: str) -> str:
@@ -69,13 +69,14 @@ def run(
             progress_fn(f"{genre}: {len(artist_names)} sanatçı işlenecek")
         raw_tracks = []
         for artist_name in artist_names:
-            key = _state_key(artist_name)
             try:
+                artist_input = parse_artist_input(artist_name)
+                key = _state_key(artist_name)
                 channel_id = state.artist_ids.get(key)
                 if channel_id is not None:
-                    artist = ArtistReference(artist_name, artist_name, channel_id)
+                    artist = ArtistReference(artist_name, artist_input.label, channel_id)
                 else:
-                    artist = api.resolve_artist(artist_name)
+                    artist = api.resolve_artist(artist_input)
                     if not dry_run:
                         state.artist_ids[key] = artist.channel_id
                 artist_tracks = collector.collect_artist(artist)

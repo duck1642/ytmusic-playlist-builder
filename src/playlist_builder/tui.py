@@ -226,7 +226,7 @@ class ArtistEditorScreen(ModalScreen[str]):
                     yield Static(id="artist-path")
                     yield DataTable(id="artist-list")
             yield Input(
-                placeholder="Sanatçı adı yazın; Enter ile ekleyin veya düzenleyin",
+                placeholder="Sanatçı adı, URL veya ad | URL yazın",
                 id="artist-input",
             )
             with Horizontal(id="editor-actions"):
@@ -515,7 +515,7 @@ class ArtistEditorScreen(ModalScreen[str]):
             return
         name = self.query_one("#artist-input", Input).value.strip()
         if not name or name.startswith("#"):
-            self._set_editor_status("Geçerli bir sanatçı adı yazın.")
+            self._set_editor_status("Geçerli bir sanatçı adı veya YouTube Music URL'si yazın.")
             return
         artists = self._artists[self._selected_genre]
         if any(artist.casefold() == name.casefold() for artist in artists):
@@ -535,7 +535,7 @@ class ArtistEditorScreen(ModalScreen[str]):
             return
         name = self.query_one("#artist-input", Input).value.strip()
         if not name or name.startswith("#"):
-            self._set_editor_status("Geçerli bir sanatçı adı yazın.")
+            self._set_editor_status("Geçerli bir sanatçı adı veya YouTube Music URL'si yazın.")
             return
         artists = self._artists[self._selected_genre]
         index = self._editing_index

@@ -553,3 +553,29 @@ Varsayılan altı artist playlist dosyası kaldırıldı; mevcut `artists/rock.t
 - Verification: `pytest` → `47 passed`; `compileall`, `pip check` ve `git diff --check` başarılı.
 - Takip edilen dosyalar arasında gerçek secret bulunmadı; `client_secret` referansları yalnızca örnek/kod/test içeriği.
 - Sürüm `0.0.19` olarak hizalandı.
+
+### 2026-08-22T02:49+03:00
+
+#### Task
+Sanatçı girdilerinde isim yanında YouTube kanal URL'si desteği eklemek.
+
+#### Summary
+Sanatçı listeleri artık düz isim, YouTube `@handle` veya `channel/<id>` URL'si ve `isim | URL` formatını kabul ediyor. `channel/<id>` girdileri sanatçı aramasını atlayarak doğrudan kanal kimliğini kullanıyor; `@handle` girdileri handle ile mevcut isim arama fallback'ine gidiyor. İsim ve URL birlikte verildiğinde URL kaynak olarak öncelikli, isim ise görünen etiket olarak tutuluyor.
+
+#### Affected Files
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/tui.py`
+- `tests/test_ytmusic.py`
+- `README.md`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Mevcut düz sanatçı adı formatı ve mevcut duplicate davranışı korundu; duplicate doğrulaması bu değişikliğin kapsamına alınmadı.
+- URL girdileri yalnızca resmi YouTube/YouTube Music hostları ve `@handle` veya `channel/<id>` yolları için kabul ediliyor.
+- OAuth ve playlist yazma akışı değiştirilmedi.
+
+#### Notes
+- Verification: `pytest` → `51 passed`; `git diff --check` başarılı.
+- Sürüm `0.0.20` olarak hizalandı.
