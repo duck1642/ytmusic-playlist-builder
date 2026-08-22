@@ -197,3 +197,41 @@ def test_from_auth_passes_oauth_credentials(monkeypatch: pytest.MonkeyPatch, tmp
     assert credentials.client_id == "client-id"
     assert credentials.client_secret == "client-secret"
     assert calls[0][1]["requests_session"] is credentials._session
+
+
+class PlaylistUpdateClient:
+    def __init__(self, response: object) -> None:
+        self.response = response
+        self.calls: list[tuple[object, ...]] = []
+
+    def add_playlist_items(
+        self, playlist_id: str, *, videoIds: list[str], duplicates: bool
+    ) -> object:
+        self.calls.append((playlist_id, videoIds, duplicates))
+        return self.response
+
+
+def test_add_playlist_items_accepts_success_response() -> None:
+    response = {"status": "STATUS_SUCCEEDED", "playlistEditResults": []}
+    client = PlaylistUpdateClient(response)
+
+    result = YtMusicAdapter(client).add_playlist_items("PL-ROCK", ["video-1"])
+
+    assert result == response
+    assert client.calls == [("PL-ROCK", ["video-1"], False)]
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"status": "STATUS_FAILED"},
+        {"error": "permission denied"},
+        "STATUS_FAILED",
+        None,
+    ],
+)
+def test_add_playlist_items_rejects_non_success_response(response: object) -> None:
+    with pytest.raises(YtMusicError, match="Could not add items"):
+        YtMusicAdapter(PlaylistUpdateClient(response)).add_playlist_items(
+            "PL-ROCK", ["video-1"]
+        )

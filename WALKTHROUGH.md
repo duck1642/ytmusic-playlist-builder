@@ -788,3 +788,31 @@ Build artık yalnızca TTL kontrollü `artist_aliases` kayıtlarını kullanıyo
 
 - Verification: `tests/test_cli.py tests/test_state.py` → `11 passed`.
 - Sürüm `0.0.25` olarak hizalandı.
+
+### 2026-08-22T10:37+03:00
+
+#### Task
+
+Önceki kalite incelemesindeki playlist ekleme başarısızlığı ve state poisoning bulgusunu düzeltmek.
+
+#### Summary
+
+YouTube Music playlist güncellemesi artık yalnızca `STATUS_SUCCEEDED` response'u başarı kabul ediyor. Hata alanı olmayan fakat başarısız durum bildiren response'lar da `YtMusicError` ile durduruluyor. `PlaylistWriter` state'i API çağrısından sonra güncellediği için adapter'daki bu sınır, başarısız eklemenin `generated_video_ids` veya `removed_video_ids` verisini kirletmesini engelliyor.
+
+#### Affected Files
+
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_ytmusic.py`
+- `tests/test_playlists.py`
+
+#### Decisions
+
+- Kurulu `ytmusicapi` sürümünün gerçek başarı response'u olan `STATUS_SUCCEEDED` tek başarı sözleşmesi olarak kullanıldı.
+- Mevcut test double'larının döndürdüğü legacy string başarı değeri de geriye dönük test uyumluluğu için kabul edildi.
+- Başarısız API exception'ında writer state'inin değişmediğini ayrıca regression testiyle doğruladık.
+
+#### Notes
+
+- Verification: `tests/test_ytmusic.py tests/test_playlists.py` → `21 passed`.
+- Sürüm `0.0.26` olarak hizalandı.

@@ -1,6 +1,7 @@
 from playlist_builder.models import Track
 from playlist_builder.playlists import PlaylistWriter
 from playlist_builder.state import BuildState
+import pytest
 
 
 def track(video_id: str) -> Track:
@@ -82,3 +83,26 @@ def test_dry_run_does_not_write_playlist_or_state() -> None:
     assert api.created == []
     assert api.added == []
     assert state.to_dict() == BuildState().to_dict()
+
+
+class FailingAddPlaylistApi(FakePlaylistApi):
+    def add_playlist_items(self, playlist_id: str, video_ids: list[str]) -> object:
+        self.added.append((playlist_id, list(video_ids)))
+        raise RuntimeError("playlist update failed")
+
+
+def test_failed_playlist_update_does_not_poison_state() -> None:
+    api = FailingAddPlaylistApi(
+        [{"playlistId": "PL-ROCK", "title": "rock"}],
+        {"PL-ROCK": ["kept"]},
+    )
+    state = BuildState(
+        playlist_ids={"rock": "PL-ROCK"},
+        generated_video_ids={"rock": ["kept"]},
+    )
+    before = state.to_dict()
+
+    with pytest.raises(RuntimeError, match="playlist update failed"):
+        PlaylistWriter(api).sync_genre("rock", [[track("kept"), track("new")]], state)
+
+    assert state.to_dict() == before

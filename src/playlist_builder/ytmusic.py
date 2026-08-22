@@ -143,6 +143,12 @@ def _result_id(result: dict[str, Any]) -> str | None:
     return None
 
 
+def _playlist_update_succeeded(result: Any) -> bool:
+    if result == "STATUS_SUCCEEDED":
+        return True
+    return isinstance(result, dict) and result.get("status") == "STATUS_SUCCEEDED"
+
+
 class YtMusicAdapter:
     """Small boundary around the ytmusicapi methods used by this project."""
 
@@ -378,6 +384,6 @@ class YtMusicAdapter:
             videoIds=video_ids,
             duplicates=False,
         )
-        if isinstance(result, dict) and result.get("error"):
+        if not _playlist_update_succeeded(result):
             raise YtMusicError(f"Could not add items to playlist: {playlist_id}")
         return result
