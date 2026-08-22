@@ -19,12 +19,14 @@ class ArtistAlias:
     channel_id: str
     display_name: str
     resolved_at: str
+    handle_verified: bool = False
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, str | bool]:
         return {
             "channel_id": self.channel_id,
             "display_name": self.display_name,
             "resolved_at": self.resolved_at,
+            "handle_verified": self.handle_verified,
         }
 
 
@@ -89,11 +91,14 @@ def _artist_alias_mapping(raw: Any) -> dict[str, ArtistAlias]:
         channel_id = value.get("channel_id")
         display_name = value.get("display_name")
         resolved_at = value.get("resolved_at")
+        handle_verified = value.get("handle_verified", False)
         if not all(isinstance(item, str) and item for item in (channel_id, display_name, resolved_at)):
             raise StateError(
                 "artist_aliases values must contain channel_id, display_name and resolved_at"
             )
-        aliases[key] = ArtistAlias(channel_id, display_name, resolved_at)
+        if not isinstance(handle_verified, bool):
+            raise StateError("artist_aliases handle_verified must be a boolean")
+        aliases[key] = ArtistAlias(channel_id, display_name, resolved_at, handle_verified)
     return aliases
 
 

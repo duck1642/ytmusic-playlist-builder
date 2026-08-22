@@ -178,6 +178,8 @@ def _cached_artist_alias(
     alias = state.artist_aliases.get(canonical_artist_key(artist_input))
     if alias is None or not artist_alias_is_fresh(alias, max_age_days):
         return None
+    if artist_input.handle is not None and not alias.handle_verified:
+        return None
     return ArtistReference(artist_input.raw, alias.display_name, alias.channel_id)
 
 
@@ -190,6 +192,7 @@ def _remember_artist_alias(
         channel_id=artist.channel_id,
         display_name=artist.display_name,
         resolved_at=datetime.now(timezone.utc).isoformat(),
+        handle_verified=artist_input.handle is not None,
     )
     for key in _artist_alias_keys(artist_input, artist):
         state.artist_aliases[key] = alias

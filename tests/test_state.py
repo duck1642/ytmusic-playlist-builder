@@ -50,6 +50,27 @@ def test_state_round_trip_preserves_artist_aliases(tmp_path: Path) -> None:
     assert load_state(state_file) == expected
 
 
+def test_legacy_artist_alias_without_handle_provenance_is_unverified(tmp_path: Path) -> None:
+    state_file = tmp_path / "state.json"
+    state_file.write_text(
+        """{
+          "state_version": 1,
+          "artist_aliases": {
+            "handle:radiohead": {
+              "channel_id": "UC-LEGACY",
+              "display_name": "Radiohead",
+              "resolved_at": "2026-08-22T00:00:00+00:00"
+            }
+          }
+        }""",
+        encoding="utf-8",
+    )
+
+    state = load_state(state_file)
+
+    assert state.artist_aliases["handle:radiohead"].handle_verified is False
+
+
 def test_legacy_state_without_version_still_loads(tmp_path: Path) -> None:
     state_file = tmp_path / "state.json"
     state_file.write_text('{"artist_ids": {"Radiohead": "UC-RADIOHEAD"}}', encoding="utf-8")

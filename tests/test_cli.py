@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -10,7 +11,7 @@ from playlist_builder.cli import (
     validate_remote,
 )
 from playlist_builder.playlists import PlaylistIdentityError
-from playlist_builder.state import BuildState, load_state, save_state
+from playlist_builder.state import ArtistAlias, BuildState, load_state, save_state
 from playlist_builder.ytmusic import ArtistInput, ArtistReference, parse_artist_input
 
 
@@ -193,6 +194,46 @@ def test_run_deduplicates_per_playlist_and_reuses_aliases_and_catalog(
 
     assert api.resolve_calls == []
     assert api.list_releases_calls == 1
+
+
+def test_run_does_not_use_legacy_handle_alias_without_provenance(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_path = _write_config(tmp_path)
+    save_state(
+        tmp_path / "state" / "build_state.json",
+        BuildState(
+            artist_aliases={
+                "handle:radiohead": ArtistAlias(
+                    channel_id="UC-LEGACY",
+                    display_name="Radiohead",
+                    resolved_at=datetime.now(timezone.utc).isoformat(),
+                )
+            }
+        ),
+    )
+    api = FakeBuildApi()
+    FakeWriter.calls = []
+
+    def fake_from_auth(cls, *_args, **_kwargs):
+        return api
+
+    monkeypatch.setattr(
+        "playlist_builder.cli.YtMusicAdapter.from_auth",
+        classmethod(fake_from_auth),
+    )
+    monkeypatch.setattr("playlist_builder.cli.PlaylistWriter", FakeWriter)
+
+    assert run(config_path) == 0
+
+    assert api.resolve_calls == [
+        "Radiohead",
+        "Radiohead | https://music.youtube.com/@radiohead",
+    ]
+    state = load_state(tmp_path / "state" / "build_state.json")
+    assert state.artist_aliases["handle:radiohead"].channel_id == "UC-RADIOHEAD"
+    assert state.artist_aliases["handle:radiohead"].handle_verified is True
 
 
 def test_run_does_not_use_legacy_artist_ids_without_ttl_metadata(

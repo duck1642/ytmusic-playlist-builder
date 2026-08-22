@@ -1032,3 +1032,32 @@ Playlist başlığı birden fazla uzak playlist ile eşleştiğinde `PlaylistIde
 
 - Verification: playlist unit testi ve CLI boundary testi eklendi; tam paket doğrulaması sonraki adımda yapılacak.
 - Sürüm `0.0.34` olarak hizalandı.
+
+### 2026-08-22T13:07+03:00
+
+#### Task
+
+Son Leibniz incelemesindeki eski persisted `handle:*` alias'larının yeni fail-closed çözümlemeyi bypass edebilmesi bulgusunu düzeltmek.
+
+#### Summary
+
+`ArtistAlias` artık `handle_verified` provenance bilgisi taşıyor. Eski state kayıtlarında bulunmayan alan `False` kabul ediliyor; bu nedenle eski handle alias'ları TTL içinde olsa bile cache'ten kullanılmıyor. Yeni handle alias'ı yalnızca `resolve_artist()` authoritative handle eşleşmesiyle başarılı döndükten sonra `True` olarak kaydediliyor.
+
+#### Affected Files
+
+- `src/playlist_builder/state.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_state.py`
+- `tests/test_cli.py`
+
+#### Decisions
+
+- State formatı geriye dönük okunabilir tutuldu; eksik provenance alanı güvenilir kabul edilmiyor.
+- Handle doğrulama sonucu ile name/channel alias cache davranışı birbirinden ayrıldı.
+- Eski state'i topluca silmek yerine yalnızca doğrulanmamış handle alias'ları yeniden remote çözümlemeye zorlanıyor.
+
+#### Notes
+
+- Verification: `tests/test_state.py tests/test_cli.py` → `16 passed`.
+- Sürüm `0.0.35` olarak hizalandı.
