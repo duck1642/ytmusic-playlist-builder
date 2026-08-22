@@ -995,25 +995,13 @@ class PlaylistBuilderApp(App[str]):
             return
 
         auth_ready = config.auth_file is not None and config.auth_file.is_file()
-        filter_names = [
-            name
-            for name, enabled in (
-                ("live", config.filters.exclude_live),
-                ("remix", config.filters.exclude_remix),
-                ("remaster", config.filters.exclude_remaster),
-                ("deluxe", config.filters.exclude_deluxe),
-                ("karaoke", config.filters.exclude_karaoke),
-            )
-            if enabled
-        ]
-        filters = ", ".join(filter_names) if filter_names else "yok"
         status.update(
             "\n".join(
                 (
                     f"OAuth: {'hazır' if auth_ready else 'eksik'}",
                     f"Playlist: {config.playlist.privacy}",
                     "Parça limiti: yok",
-                    f"Filtreler: {filters}",
+                    "Otomatik filtre: yok",
                 )
             )
         )

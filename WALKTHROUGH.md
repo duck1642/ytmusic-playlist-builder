@@ -696,3 +696,69 @@ Validatorlar için kalıcı cache/state yazımı olmadığını testlerle güven
 
 - Verification: proje `.venv` ile `pytest` → başarılı; 550 üzeri parça için tek chunk davranışı ayrıca test edildi.
 - Sürüm `0.0.23` olarak hizalandı.
+
+### 2026-08-22T05:04+03:00
+
+#### Task
+
+v0.0.23 kodunun büyük gerçek build öncesi bağımsız kalite incelemesi ve filtreleme kapsamının sadeleştirilmesi.
+
+#### Summary
+
+gpt-5.6-sol / xhigh reasoning kullanan read-only subagent incelemesi, testlerin geçmesinden bağımsız olarak düzeltilmesi gereken iki P1 ve üç P2 bulgu raporladı. P1 bulgular artist cache TTL'inin legacy `artist_ids` fallback'iyle aşılması ve başarısız playlist eklemesinin state'i başarı gibi güncelleyebilmesi. P2 bulgular filtre false-positive'leri, TUI kaydında yorum/boş satır kaybı ve state'teki silinmiş playlist ID'sinin build'i kilitlemesi.
+
+#### Decisions
+
+- `live`, `remix`, `remaster`, `deluxe` ve `karaoke` otomatik filtreleri kaldırılacak.
+- Build tüm albüm/single parçalarını çekecek; manuel eleme YouTube Music üzerinde yapılacak.
+- Filtre kaldırma bir sonraki kod değişikliğinde processing, config, TUI, test ve README'den birlikte temizlenecek.
+- P1/P2 bulgular gerçek büyük build'den önce ayrı düzeltme adımları olarak ele alınacak.
+
+#### Follow-ups
+
+- Artist cache TTL ve legacy `artist_ids` migration/fallback davranışını düzelt.
+- Playlist yazma response/state güncellemesini başarısız ve kısmi sonuçlara karşı güvenli hale getir.
+- TUI artist dosyası kaydında yorumları, boş satırları ve satır biçimini koru; atomic yaz.
+- Silinmiş playlist ID'leri için güvenli recovery ekle.
+
+#### Notes
+
+- Bu kayıt turunda kaynak kod değiştirilmedi; mevcut v0.0.23 build'inde filtreler hâlâ config'e göre çalışıyor.
+
+### 2026-08-22T05:15+03:00
+
+#### Task
+
+Otomatik live/remix/remaster/deluxe/karaoke filtrelerini kaldırmak.
+
+#### Summary
+
+Build artık katalogdan gelen tüm albüm ve single parçalarını işler. İçerik adına göre hiçbir parça elenmez; parçalar yalnızca mevcut sanatçı-albüm-track sıralama mantığıyla sıralanır ve aynı `video_id` duplicate'leri ayıklanır. Manuel eleme YouTube Music'e bırakılır.
+
+`FilterConfig`, filtre parser'ı ve processing filtresi kaldırıldı. CLI, TUI, örnek config ve README yeni davranışa göre güncellendi. Eski config dosyalarındaki `filters:` bölümü geriye dönük olarak yok sayılır; yeni örnek ve yerel configte bu bölüm bulunmaz.
+
+#### Affected Files
+
+- `src/playlist_builder/models.py`
+- `src/playlist_builder/config.py`
+- `src/playlist_builder/processing.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/tui.py`
+- `src/playlist_builder/__init__.py`
+- `config.example.yaml`
+- `README.md`
+- `tests/test_processing.py`
+- `tests/test_config.py`
+- `tests/test_tui.py`
+
+#### Decisions
+
+- Otomatik sürüm filtreleri tamamen kaldırıldı; filtre ayarı için yeni bir config alanı yok.
+- `prepare_tracks` tüm release varyantlarını korur ve yalnızca video ID bazlı duplicate ayıklar.
+- TUI durum paneli `Otomatik filtre: yok` gösterir.
+- 550 parça limiti kaldırıldığı için mevcut tek playlist davranışı korunur.
+
+#### Notes
+
+- Verification: hedefli testler → `24 passed`; tam `pytest` → `70 passed`; `compileall` → başarılı; `git diff --check` → başarılı.
+- Sürüm `0.0.24` olarak hizalandı.

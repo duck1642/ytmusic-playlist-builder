@@ -28,8 +28,6 @@ def _write_config(tmp_path: Path) -> Path:
                 "playlist:",
                 "  privacy: PRIVATE",
                 "  update_mode: append_only",
-                "filters:",
-                "  exclude_karaoke: true",
             )
         ),
         encoding="utf-8",

@@ -1,47 +1,15 @@
 from __future__ import annotations
 
-import re
 import unicodedata
 from datetime import date
 from typing import Iterable, Sequence
 
-from .models import FilterConfig, Track
-
-
-_FILTER_TERMS = {
-    "exclude_live": ("live",),
-    "exclude_remix": ("remix",),
-    "exclude_remaster": ("remaster",),
-    "exclude_deluxe": ("deluxe",),
-    "exclude_karaoke": ("karaoke",),
-}
+from .models import Track
 
 
 def _sort_text(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", value.casefold())
     return "".join(character for character in normalized if not unicodedata.combining(character))
-
-
-def _contains_term(text: str, term: str) -> bool:
-    return re.search(rf"\b{re.escape(term)}\b", text) is not None or term in text
-
-
-def filter_tracks(tracks: Iterable[Track], config: FilterConfig) -> list[Track]:
-    enabled_terms = tuple(
-        term
-        for option, terms in _FILTER_TERMS.items()
-        if getattr(config, option)
-        for term in terms
-    )
-    if not enabled_terms:
-        return list(tracks)
-
-    result: list[Track] = []
-    for track in tracks:
-        searchable_text = f"{track.title} {track.album}".casefold()
-        if not any(_contains_term(searchable_text, term) for term in enabled_terms):
-            result.append(track)
-    return result
 
 
 def _release_key(track: Track) -> tuple[bool, date]:
@@ -84,11 +52,8 @@ def dedupe_tracks(tracks: Iterable[Track]) -> list[Track]:
     return result
 
 
-def prepare_tracks(
-    tracks: Iterable[Track],
-    filter_config: FilterConfig,
-) -> list[list[Track]]:
-    filtered = filter_tracks(tracks, filter_config)
-    ordered = sort_tracks(filtered)
+def prepare_tracks(tracks: Iterable[Track]) -> list[list[Track]]:
+    """Order and deduplicate the complete catalog without content filtering."""
+    ordered = sort_tracks(tracks)
     unique = dedupe_tracks(ordered)
     return [unique] if unique else []

@@ -6,8 +6,6 @@ from typing import Any
 
 import yaml
 
-from .models import FilterConfig
-
 
 class ConfigError(ValueError):
     """Raised when the project configuration is invalid."""
@@ -29,7 +27,6 @@ class AppConfig:
     logs_dir: Path
     artist_cache_ttl_days: int
     playlist: PlaylistConfig
-    filters: FilterConfig
 
 
 def _relative_path(base_dir: Path, value: Any, field_name: str) -> Path:
@@ -45,12 +42,6 @@ def _optional_path(base_dir: Path, value: Any, field_name: str) -> Path | None:
     return _relative_path(base_dir, value, field_name)
 
 
-def _bool_value(value: Any, field_name: str) -> bool:
-    if isinstance(value, bool):
-        return value
-    raise ConfigError(f"{field_name} must be true or false")
-
-
 def load_config(path: Path) -> AppConfig:
     base_dir = path.parent
     try:
@@ -64,9 +55,8 @@ def load_config(path: Path) -> AppConfig:
         raise ConfigError("The top-level configuration must be a mapping")
 
     playlist_data = raw.get("playlist", {})
-    filters_data = raw.get("filters", {})
-    if not isinstance(playlist_data, dict) or not isinstance(filters_data, dict):
-        raise ConfigError("playlist and filters must be mappings")
+    if not isinstance(playlist_data, dict):
+        raise ConfigError("playlist must be a mapping")
 
     privacy = str(playlist_data.get("privacy", "PRIVATE")).upper()
     if privacy not in {"PRIVATE", "PUBLIC", "UNLISTED"}:
@@ -86,19 +76,6 @@ def load_config(path: Path) -> AppConfig:
     if artist_cache_ttl_days < 0:
         raise ConfigError("artist_cache_ttl_days must be a non-negative integer")
 
-    filter_config = FilterConfig(
-        exclude_live=_bool_value(filters_data.get("exclude_live", False), "filters.exclude_live"),
-        exclude_remix=_bool_value(filters_data.get("exclude_remix", False), "filters.exclude_remix"),
-        exclude_remaster=_bool_value(
-            filters_data.get("exclude_remaster", False), "filters.exclude_remaster"
-        ),
-        exclude_deluxe=_bool_value(
-            filters_data.get("exclude_deluxe", False), "filters.exclude_deluxe"
-        ),
-        exclude_karaoke=_bool_value(
-            filters_data.get("exclude_karaoke", False), "filters.exclude_karaoke"
-        ),
-    )
     return AppConfig(
         auth_file=_optional_path(base_dir, raw.get("auth_file"), "auth_file"),
         oauth_client_file=_optional_path(
@@ -115,5 +92,4 @@ def load_config(path: Path) -> AppConfig:
             privacy=privacy,
             update_mode=update_mode,
         ),
-        filters=filter_config,
     )

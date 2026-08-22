@@ -1,9 +1,8 @@
 from datetime import date
 
-from playlist_builder.models import FilterConfig, Track
+from playlist_builder.models import Track
 from playlist_builder.processing import (
     dedupe_tracks,
-    filter_tracks,
     prepare_tracks,
     sort_tracks,
 )
@@ -55,21 +54,6 @@ def test_sort_preserves_input_order_when_track_number_is_missing() -> None:
     assert [item.video_id for item in sort_tracks(tracks)] == ["second", "first"]
 
 
-def test_filter_can_exclude_version_keywords_from_title_or_album() -> None:
-    tracks = [
-        track("keep", "Artist", "Album", "Song"),
-        track("live", "Artist", "Album (Live)", "Song"),
-        track("karaoke", "Artist", "Album", "Song (Karaoke)"),
-    ]
-
-    result = filter_tracks(
-        tracks,
-        FilterConfig(exclude_live=True, exclude_karaoke=True),
-    )
-
-    assert [item.video_id for item in result] == ["keep"]
-
-
 def test_dedupe_keeps_first_occurrence_by_video_id() -> None:
     tracks = [track("same", "Artist", "Album", "Song"), track("same", "Artist", "Single", "Song")]
 
@@ -79,21 +63,25 @@ def test_dedupe_keeps_first_occurrence_by_video_id() -> None:
     assert result[0].album == "Album"
 
 
-def test_prepare_tracks_applies_filter_sort_and_dedupe_without_chunking() -> None:
+def test_prepare_tracks_keeps_all_release_variants_and_dedupes_without_chunking() -> None:
     tracks = [
-        track("duplicate", "Artist", "Album", "Song", release_year=2020, track_number=2),
-        track("duplicate", "Artist", "Single", "Song", release_year=2021, track_number=1),
+        track("karaoke", "Artist", "Album", "Song (Karaoke)", release_year=2024, track_number=1),
+        track("remix", "Artist", "Album", "Song (Remix)", release_year=2020, track_number=1),
+        track("duplicate", "Artist", "Album", "Song", release_year=2025, track_number=1),
         track("live", "Artist", "Album (Live)", "Song", release_year=2019, track_number=1),
-        track("clean", "Artist", "Album", "Clean", release_year=2020, track_number=1),
+        track("deluxe", "Artist", "Album (Deluxe)", "Song", release_year=2022, track_number=1),
+        track("remaster", "Artist", "Album (Remaster)", "Song", release_year=2021, track_number=1),
+        track("duplicate", "Artist", "Single", "Song", release_year=2026, track_number=1),
     ]
 
-    result = prepare_tracks(
-        tracks,
-        FilterConfig(exclude_live=True),
-    )
+    result = prepare_tracks(tracks)
 
     assert [[item.video_id for item in chunk] for chunk in result] == [[
-        "clean",
+        "live",
+        "remix",
+        "remaster",
+        "deluxe",
+        "karaoke",
         "duplicate",
     ]]
 
@@ -104,7 +92,7 @@ def test_prepare_tracks_keeps_more_than_550_tracks_in_one_playlist() -> None:
         for index in range(551)
     ]
 
-    result = prepare_tracks(tracks, FilterConfig())
+    result = prepare_tracks(tracks)
 
     assert len(result) == 1
     assert len(result[0]) == 551

@@ -9,10 +9,3 @@ artist_cache_ttl_days: 30
 playlist:
   privacy: PRIVATE
   update_mode: append_only
-
-filters:
-  exclude_live: false
-  exclude_remix: false
-  exclude_remaster: false
-  exclude_deluxe: false
-  exclude_karaoke: true

@@ -5,7 +5,7 @@ import pytest
 from playlist_builder.config import ConfigError, load_config
 
 
-def test_load_config_resolves_relative_paths_from_config_directory(tmp_path: Path) -> None:
+def test_load_config_resolves_relative_paths_and_ignores_removed_filters(tmp_path: Path) -> None:
     config_file = tmp_path / "config.yaml"
     config_file.write_text(
         """
@@ -25,7 +25,7 @@ filters:
     assert config.artists_dir == tmp_path / "artists"
     assert config.auth_file == tmp_path / "auth" / "oauth.json"
     assert config.oauth_client_file == tmp_path / "auth" / "client_secret.json"
-    assert config.filters.exclude_karaoke is True
+    assert not hasattr(config, "filters")
     assert config.artist_cache_ttl_days == 30
 
 

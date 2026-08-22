@@ -5,12 +5,13 @@ Sanatçı listelerinden düzenli RAW YouTube Music playlistleri oluşturmak içi
 Akış:
 
 ```text
-Sanatçıları ekle → Albüm/single kataloglarını al → Filtrele ve sırala
+Sanatçıları ekle → Albüm/single kataloglarını al → Sırala ve duplicate ayıkla
 → RAW playlist oluştur → YouTube Music'te manuel ele → Telefona indir
 ```
 
 İlk sürüm yalnızca playlist oluşturma ve organize etme işine odaklanır. Telefon indirmeleri YouTube Music uygulamasından yapılır.
 Her `.txt` dosyası tek bir playlist hedefler; playlistler parça sayısına göre otomatik olarak bölünmez.
+Build, sanatçıların tüm albüm ve single parçalarını toplar; `live`, `remix`, `remaster`, `deluxe` veya `karaoke` sürümleri otomatik filtrelenmez. Eleme YouTube Music'te manuel yapılır.
 
 ## Kullanım
 
