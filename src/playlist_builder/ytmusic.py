@@ -127,6 +127,14 @@ def _handle_match_key(value: str) -> str:
     return normalize_artist_name(value).replace(" ", "")
 
 
+def _result_handle(result: dict[str, Any]) -> str | None:
+    for key in ("handle", "artistHandle", "channelHandle"):
+        value = result.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip().lstrip("@")
+    return None
+
+
 def _result_name(result: dict[str, Any]) -> str | None:
     for key in ("artist", "name", "title"):
         value = result.get(key)
@@ -235,6 +243,8 @@ class YtMusicAdapter:
             limit=10,
         )
         exact_matches: dict[str, ArtistReference] = {}
+        artist_results: list[tuple[dict[str, Any], str, str]] = []
+        has_result_handles = False
         for result in results:
             if not isinstance(result, dict):
                 continue
@@ -245,8 +255,14 @@ class YtMusicAdapter:
             channel_id = _result_id(result)
             if display_name is None or channel_id is None:
                 continue
+            artist_results.append((result, display_name, channel_id))
             if artist_input.handle is not None:
-                matches = _handle_match_key(display_name) == _handle_match_key(query)
+                result_handle = _result_handle(result)
+                has_result_handles = has_result_handles or result_handle is not None
+                matches = (
+                    result_handle is not None
+                    and _handle_match_key(result_handle) == _handle_match_key(query)
+                )
             else:
                 matches = _normalise(display_name) == _normalise(query)
             if matches:
@@ -255,6 +271,19 @@ class YtMusicAdapter:
                     artist_input.display_name or display_name,
                     channel_id,
                 )
+
+        if (
+            artist_input.handle is not None
+            and not exact_matches
+            and not has_result_handles
+            and len(artist_results) == 1
+        ):
+            _, display_name, channel_id = artist_results[0]
+            exact_matches[channel_id] = ArtistReference(
+                artist_input.raw,
+                artist_input.display_name or display_name,
+                channel_id,
+            )
 
         if len(exact_matches) != 1:
             if not exact_matches:

@@ -898,3 +898,30 @@ PlaylistWriter artık state'te kayıtlı ve güncel playlist ID'sini aynı başl
 
 - Verification: `tests/test_playlists.py` → `9 passed`.
 - Sürüm `0.0.29` olarak hizalandı.
+
+### 2026-08-22T12:04+03:00
+
+#### Task
+
+Hakem incelemesindeki handle URL çözümlemesinin display-name bağımlılığı bulgusunu düzeltmek.
+
+#### Summary
+
+`/@handle` girdileri artık handle metnini sanatçının görünen adıyla eşit kabul etmiyor. ytmusicapi sonucu açık bir handle alanı taşıyorsa o alan eşleştiriliyor; kurulu ytmusicapi sürümünde bu alan yoksa, handle aramasından tek artist sonucu dönmesi kontrollü fallback olarak kabul ediliyor. Birden fazla sonuçta veya açık handle alanı eşleşmediğinde çözümleme reddediliyor.
+
+#### Affected Files
+
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_ytmusic.py`
+
+#### Decisions
+
+- `Radiohead` görünen adı, `@radioheadofficial` handle’ı için artık zorunlu eşleşme değil.
+- Belirsiz handle search sonuçları sessizce ilk sonuca bağlanmayacak.
+- Handle resolution için ek bir API katmanı eklenmedi; mevcut ytmusicapi search sözleşmesi kullanıldı.
+
+#### Notes
+
+- Verification: `tests/test_ytmusic.py` → `21 passed`.
+- Sürüm `0.0.30` olarak hizalandı.

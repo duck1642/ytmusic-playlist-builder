@@ -107,6 +107,87 @@ def test_resolve_artist_uses_handle_as_search_fallback() -> None:
     assert client.calls == [("search", "radiohead", "artists", 10)]
 
 
+def test_resolve_artist_accepts_handle_when_display_name_differs() -> None:
+    class OfficialHandleClient(FakeYtMusic):
+        def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
+            self.calls.append(("search", query, filter, limit))
+            return [
+                {
+                    "resultType": "artist",
+                    "browseId": "UC-RADIOHEAD",
+                    "artist": "Radiohead",
+                }
+            ]
+
+    client = OfficialHandleClient()
+    result = YtMusicAdapter(client).resolve_artist(
+        "https://music.youtube.com/@radioheadofficial"
+    )
+
+    assert result == ArtistReference(
+        requested_name="https://music.youtube.com/@radioheadofficial",
+        display_name="Radiohead",
+        channel_id="UC-RADIOHEAD",
+    )
+
+
+def test_resolve_artist_rejects_ambiguous_handle_search() -> None:
+    class AmbiguousHandleClient(FakeYtMusic):
+        def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
+            return [
+                {"resultType": "artist", "browseId": "UC-ONE", "artist": "One"},
+                {"resultType": "artist", "browseId": "UC-TWO", "artist": "Two"},
+            ]
+
+    with pytest.raises(YtMusicError, match="No exact artist match"):
+        YtMusicAdapter(AmbiguousHandleClient()).resolve_artist(
+            "https://music.youtube.com/@radioheadofficial"
+        )
+
+
+def test_resolve_artist_prefers_explicit_result_handle() -> None:
+    class ExplicitHandleClient(FakeYtMusic):
+        def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
+            return [
+                {
+                    "resultType": "artist",
+                    "browseId": "UC-OTHER",
+                    "artist": "Other",
+                    "handle": "other",
+                },
+                {
+                    "resultType": "artist",
+                    "browseId": "UC-RADIOHEAD",
+                    "artist": "Radiohead",
+                    "handle": "radioheadofficial",
+                },
+            ]
+
+    result = YtMusicAdapter(ExplicitHandleClient()).resolve_artist(
+        "https://music.youtube.com/@radioheadofficial"
+    )
+
+    assert result.channel_id == "UC-RADIOHEAD"
+
+
+def test_resolve_artist_rejects_nonmatching_explicit_result_handle() -> None:
+    class WrongExplicitHandleClient(FakeYtMusic):
+        def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
+            return [
+                {
+                    "resultType": "artist",
+                    "browseId": "UC-OTHER",
+                    "artist": "Other",
+                    "handle": "other",
+                }
+            ]
+
+    with pytest.raises(YtMusicError, match="No exact artist match"):
+        YtMusicAdapter(WrongExplicitHandleClient()).resolve_artist(
+            "https://music.youtube.com/@radioheadofficial"
+        )
+
+
 def test_resolve_artist_prefers_handle_when_name_and_url_are_both_given() -> None:
     class NamedHandleClient(FakeYtMusic):
         def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
