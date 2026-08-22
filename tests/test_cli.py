@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from playlist_builder.cli import build_parser, run, validate_format, validate_remote
-from playlist_builder.state import load_state
+from playlist_builder.state import BuildState, load_state, save_state
 from playlist_builder.ytmusic import ArtistInput, ArtistReference, parse_artist_input
 
 
@@ -165,3 +165,32 @@ def test_run_deduplicates_per_playlist_and_reuses_aliases_and_catalog(
 
     assert api.resolve_calls == []
     assert api.list_releases_calls == 1
+
+
+def test_run_does_not_use_legacy_artist_ids_without_ttl_metadata(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_path = _write_config(tmp_path)
+    save_state(
+        tmp_path / "state" / "build_state.json",
+        BuildState(artist_ids={"Radiohead": "UC-LEGACY"}),
+    )
+    api = FakeBuildApi()
+    FakeWriter.calls = []
+
+    def fake_from_auth(cls, *_args, **_kwargs):
+        return api
+
+    monkeypatch.setattr(
+        "playlist_builder.cli.YtMusicAdapter.from_auth",
+        classmethod(fake_from_auth),
+    )
+    monkeypatch.setattr("playlist_builder.cli.PlaylistWriter", FakeWriter)
+
+    assert run(config_path) == 0
+
+    assert "Radiohead" in api.resolve_calls
+    assert load_state(tmp_path / "state" / "build_state.json").artist_ids == {
+        "Radiohead": "UC-LEGACY"
+    }

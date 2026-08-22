@@ -762,3 +762,29 @@ Build artık katalogdan gelen tüm albüm ve single parçalarını işler. İçe
 
 - Verification: hedefli testler → `24 passed`; tam `pytest` → `70 passed`; `compileall` → başarılı; `git diff --check` → başarılı.
 - Sürüm `0.0.24` olarak hizalandı.
+
+### 2026-08-22T10:33+03:00
+
+#### Task
+
+Önceki kalite incelemesindeki artist cache TTL bulgusunu düzeltmek.
+
+#### Summary
+
+Build artık yalnızca TTL kontrollü `artist_aliases` kayıtlarını kullanıyor. Timestamp taşımayan legacy `artist_ids` mapping'i runtime artist çözümlemesinde fallback olarak kullanılmıyor ve yeni buildlerde güncellenmiyor. Legacy alan state dosyalarında geriye dönük yükleme için korunuyor; eski kayıtlar gerektiğinde API üzerinden yeniden çözülüp timestamp'li alias olarak kaydediliyor.
+
+#### Affected Files
+
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_cli.py`
+
+#### Decisions
+
+- `artist_cache_ttl_days: 0` artık hiçbir kalıcı alias yolunu bypass edemez.
+- Legacy `artist_ids` verisi silinmedi; fakat güvenilirliği kanıtlanamadığı için yalnızca migration/round-trip uyumluluğu kapsamında tutuldu.
+
+#### Notes
+
+- Verification: `tests/test_cli.py tests/test_state.py` → `11 passed`.
+- Sürüm `0.0.25` olarak hizalandı.

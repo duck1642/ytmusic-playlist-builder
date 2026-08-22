@@ -42,10 +42,6 @@ from .ytmusic import (
 )
 
 
-def _state_key(name: str) -> str:
-    return name.casefold().strip()
-
-
 def _emit(message: str, progress_fn: Callable[[str], None] | None) -> None:
     if progress_fn is None:
         print(message)
@@ -255,14 +251,9 @@ def run(
                     artist_input,
                     config.artist_cache_ttl_days,
                 )
-                key = _state_key(artist_name)
-                channel_id = state.artist_ids.get(key)
-                if artist is None and channel_id is not None:
-                    artist = ArtistReference(artist_name, artist_input.label, channel_id)
-                elif artist is None:
+                if artist is None:
                     artist = api.resolve_artist(artist_input)
                     if not dry_run:
-                        state.artist_ids[key] = artist.channel_id
                         _remember_artist_alias(state, artist_input, artist)
 
                 if artist.channel_id in seen_channel_ids:
