@@ -100,9 +100,31 @@ def parse_artist_input(value: str) -> ArtistInput:
     )
 
 
+def normalize_artist_name(value: str) -> str:
+    """Create a conservative, whitespace-normalized artist name key."""
+
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    return " ".join(normalized.split())
+
+
+def canonical_artist_key(value: str | ArtistInput) -> str:
+    """Return a local key for duplicate detection without network access."""
+
+    artist_input = parse_artist_input(value) if isinstance(value, str) else value
+    if artist_input.channel_id is not None:
+        return f"channel:{artist_input.channel_id}"
+    if artist_input.handle is not None:
+        return f"handle:{artist_input.handle.casefold()}"
+    return f"name:{normalize_artist_name(artist_input.display_name or artist_input.raw)}"
+
+
 def _normalise(value: str) -> str:
     decomposed = unicodedata.normalize("NFKD", value.casefold())
     return "".join(char for char in decomposed if not unicodedata.combining(char)).strip()
+
+
+def _handle_match_key(value: str) -> str:
+    return normalize_artist_name(value).replace(" ", "")
 
 
 def _result_name(result: dict[str, Any]) -> str | None:
@@ -126,6 +148,7 @@ class YtMusicAdapter:
 
     def __init__(self, client: Any) -> None:
         self.client = client
+        self._artist_cache: dict[str, ArtistReference] = {}
 
     @staticmethod
     def _call(operation: str, callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
@@ -184,18 +207,24 @@ class YtMusicAdapter:
 
     def resolve_artist(self, value: str | ArtistInput) -> ArtistReference:
         artist_input = parse_artist_input(value) if isinstance(value, str) else value
+        input_key = canonical_artist_key(artist_input)
+        cached = self._artist_cache.get(input_key)
+        if cached is not None:
+            return cached
+
         if artist_input.channel_id is not None:
-            return ArtistReference(
+            reference = ArtistReference(
                 artist_input.raw,
                 artist_input.label,
                 artist_input.channel_id,
             )
+            return self._cache_artist_reference(reference, artist_input)
 
-        name = artist_input.display_name or artist_input.handle or artist_input.raw
+        query = artist_input.handle or artist_input.display_name or artist_input.raw
         results = self._call(
             "Artist search",
             self.client.search,
-            name,
+            query,
             filter="artists",
             limit=10,
         )
@@ -210,18 +239,38 @@ class YtMusicAdapter:
             channel_id = _result_id(result)
             if display_name is None or channel_id is None:
                 continue
-            if _normalise(display_name) == _normalise(name):
+            if artist_input.handle is not None:
+                matches = _handle_match_key(display_name) == _handle_match_key(query)
+            else:
+                matches = _normalise(display_name) == _normalise(query)
+            if matches:
                 exact_matches[channel_id] = ArtistReference(
                     artist_input.raw,
-                    display_name,
+                    artist_input.display_name or display_name,
                     channel_id,
                 )
 
         if len(exact_matches) != 1:
             if not exact_matches:
-                raise YtMusicError(f"No exact artist match found for: {name}")
-            raise YtMusicError(f"Multiple exact artist matches found for: {name}")
-        return next(iter(exact_matches.values()))
+                raise YtMusicError(f"No exact artist match found for: {query}")
+            raise YtMusicError(f"Multiple exact artist matches found for: {query}")
+        return self._cache_artist_reference(next(iter(exact_matches.values())), artist_input)
+
+    def _cache_artist_reference(
+        self,
+        reference: ArtistReference,
+        artist_input: ArtistInput,
+    ) -> ArtistReference:
+        keys = {
+            canonical_artist_key(artist_input),
+            f"channel:{reference.channel_id}",
+            f"name:{normalize_artist_name(reference.display_name)}",
+        }
+        if artist_input.handle is not None:
+            keys.add(f"handle:{artist_input.handle.casefold()}")
+        for key in keys:
+            self._artist_cache[key] = reference
+        return reference
 
     def list_releases(self, artist: ArtistReference) -> list[dict[str, Any]]:
         artist_page = self._call("Artist lookup", self.client.get_artist, artist.channel_id)

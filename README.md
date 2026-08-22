@@ -19,7 +19,8 @@ Sanatçıları ekle → Albüm/single kataloglarını al → Filtrele ve sırala
 4. Google Cloud'dan indirdiğiniz OAuth client JSON dosyasını `auth/client_secret.json` olarak kaydedin.
 5. OAuth tokenını oluşturun: `.venv\Scripts\python.exe build_playlists.py --setup-oauth`.
 6. Önce planı kontrol edin: `.venv\Scripts\python.exe build_playlists.py --dry-run`.
-7. Playlistleri oluşturun/güncelleyin: `.venv\Scripts\python.exe build_playlists.py`.
+7. Sanatçı dosyalarını ağ kullanmadan doğrulayın: `.venv\Scripts\python.exe build_playlists.py --validate`.
+8. Playlistleri oluşturun/güncelleyin: `.venv\Scripts\python.exe build_playlists.py`.
 
 Sanatçı dosyalarında düz isim, YouTube kanal URL'si veya ikisi birlikte kullanılabilir:
 
@@ -33,7 +34,11 @@ Radiohead | https://music.youtube.com/channel/UCq19-LqvG35A-30oyAiPiqA
 
 Menüyle kullanmak için Windows'ta `run.bat` dosyasına çift tıklayın. Textual tabanlı arayüz OAuth durumunu, playlist özetini ve canlı işlem çıktısını gösterir. Ana ekranda `D` plan, `B` playlist oluşturma/güncelleme, `A` playlist editörü, `R` yenileme ve `Q` çıkış tuşlarıdır. `Ctrl+P` native command palette'i açar; ana işlemler ve Textual komutları buradan aranabilir. `Ctrl+Left` / `Ctrl+Right` sol paneli daraltır/genişletir, `Ctrl+0` varsayılan boyuta döner. Editörde `N` yeni playlist, `M` ad değiştirme, `P` playlist dosyası silme, `A` sanatçı ekleme, `E` düzenleme, `X` sanatçı silme, `S` kaydetme ve `R` diskten yükleme kısayollarıdır; aynı `Ctrl+Left` / `Ctrl+Right` / `Ctrl+0` kısayolları playlist panelini değiştirir. Playlist adı dosyanın uzantısız adıyla aynıdır; RAW adını istiyorsanız dosyayı örneğin `METAL - RAW.txt` olarak adlandırın. Editörden silmek yalnızca yerel `.txt` dosyasını kaldırır; YouTube Music'teki mevcut playlist otomatik silinmez. OAuth düğmesi, bloklayan Google akışı için arayüzü geçici olarak kapatır ve işlem bitince yeniden açar. Windows TUI'sinde mouse desteği yalnızca tıklama ve tekerlek olaylarını raporlar; pasif mouse hareketleri izlenmez. Terminalden aynı arayüz `.venv\Scripts\python.exe build_playlists.py --tui` ile açılır.
 
+Ana ekranda `V` tuşu sanatçı girdilerini ağ kullanmadan doğrular; duplicate satırları otomatik silmez.
+
 Tekrar çalıştırmak güvenlidir. `append_only` modu yeni parçaları ekler; YouTube Music'te manuel sildiğiniz parçaları state üzerinden geri eklemez. `state/build_state.json` çalışma durumunu, `logs/build.jsonl` olayları tutar; bu dosyalar Git'e alınmaz.
+
+Sanatçı çözümleme sonuçları `state/build_state.json` içindeki `artist_aliases` alanında tutulur. `artist_cache_ttl_days` varsayılan olarak 30 gündür; `0` değeri kalıcı alias cache'ini devre dışı bırakır. Aynı playlistte aynı normalize edilmiş girdi veya aynı çözümlenmiş `channel_id` tekrar gelirse ikinci katalog çağrısı atlanır; farklı playlistlerde aynı sanatçı tutulur, ancak katalog verisi build boyunca bellekte paylaşılır.
 
 Test: `python -m pytest --basetemp=work/pytest-tmp`.
 

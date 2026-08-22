@@ -579,3 +579,46 @@ Sanatçı listeleri artık düz isim, YouTube `@handle` veya `channel/<id>` URL'
 #### Notes
 - Verification: `pytest` → `51 passed`; `git diff --check` başarılı.
 - Sürüm `0.0.20` olarak hizalandı.
+
+### 2026-08-22T03:38+03:00
+
+#### Task
+Sanatçı girdilerindeki duplicate çözümünü API kullanımını azaltacak ve build akışını koruyacak şekilde uygulamak.
+
+#### Summary
+Ham artist satırlarını ve satır numaralarını koruyan okuyucu eklendi. `--validate` ve TUI'deki `V` / command palette komutu, dosyaları ağ kullanmadan kontrol ediyor; duplicate satırlar otomatik silinmiyor. İsim, `@handle` ve `channel/<id>` girdileri için conservative canonical anahtarlar eklendi. Build aynı playlist içinde önce normalize edilmiş girdiyi, ardından çözümlenmiş `channel_id` değerini deduplicate ediyor. Aynı sanatçı farklı playlistlerde tutuluyor; katalog çağrısı build boyunca channel ID bazında bellekte cache'leniyor.
+
+Çözümlenen artist alias'ları `state/build_state.json` içine `channel_id`, görünen ad ve `resolved_at` ile yazılıyor. `artist_cache_ttl_days` varsayılanı 30 gün; `0` kalıcı alias cache'ini kapatıyor. Eski state dosyalarında `state_version` yoksa geriye dönük yükleme korunuyor. Windows legacy konsollarında Türkçe doğrulama çıktısı için stdout/stderr UTF-8'e alınıyor.
+
+#### Affected Files
+- `src/playlist_builder/artists.py`
+- `src/playlist_builder/validation.py`
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/catalog.py`
+- `src/playlist_builder/state.py`
+- `src/playlist_builder/config.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/tui.py`
+- `config.example.yaml`
+- `README.md`
+- `tests/test_artists.py`
+- `tests/test_validation.py`
+- `tests/test_ytmusic.py`
+- `tests/test_catalog.py`
+- `tests/test_state.py`
+- `tests/test_config.py`
+- `tests/test_cli.py`
+- `tests/test_tui.py`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Aynı sanatçıyı global olarak playlistlerden silmek yerine deduplication playlist bazında tutuldu.
+- Name-vs-URL semantic duplicate'ları ağsız validation aşamasında varsayılmadı; build sırasında channel ID ile kesinleştirildi.
+- Alias cache süresiz güvenilir kabul edilmiyor; TTL ile sınırlandırılıyor.
+- OAuth akışına dokunulmadı.
+
+#### Notes
+- Verification: `pytest` → `66 passed`; gerçek proje üzerinde `build_playlists.py --validate` → başarılı; kaynak AST parse → başarılı; `git diff --check` → başarılı.
+- `compileall` doğrudan F: üzerindeki `__pycache__` izinleri nedeniyle kullanılmadı; test ve AST parse ile doğrulama yapıldı.
+- Sürüm `0.0.21` olarak hizalanacak.

@@ -28,6 +28,7 @@ class AppConfig:
     state_dir: Path
     cache_dir: Path
     logs_dir: Path
+    artist_cache_ttl_days: int
     playlist: PlaylistConfig
     filters: FilterConfig
 
@@ -83,6 +84,16 @@ def load_config(path: Path) -> AppConfig:
     if update_mode != "append_only":
         raise ConfigError("Only append_only update_mode is supported")
 
+    raw_artist_cache_ttl = raw.get("artist_cache_ttl_days", 30)
+    if isinstance(raw_artist_cache_ttl, bool):
+        raise ConfigError("artist_cache_ttl_days must be a non-negative integer")
+    try:
+        artist_cache_ttl_days = int(raw_artist_cache_ttl)
+    except (TypeError, ValueError) as error:
+        raise ConfigError("artist_cache_ttl_days must be a non-negative integer") from error
+    if artist_cache_ttl_days < 0:
+        raise ConfigError("artist_cache_ttl_days must be a non-negative integer")
+
     filter_config = FilterConfig(
         exclude_live=_bool_value(filters_data.get("exclude_live", False), "filters.exclude_live"),
         exclude_remix=_bool_value(filters_data.get("exclude_remix", False), "filters.exclude_remix"),
@@ -107,6 +118,7 @@ def load_config(path: Path) -> AppConfig:
         state_dir=_relative_path(base_dir, raw.get("state_dir", "state"), "state_dir"),
         cache_dir=_relative_path(base_dir, raw.get("cache_dir", "cache"), "cache_dir"),
         logs_dir=_relative_path(base_dir, raw.get("logs_dir", "logs"), "logs_dir"),
+        artist_cache_ttl_days=artist_cache_ttl_days,
         playlist=PlaylistConfig(
             privacy=privacy,
             max_tracks=max_tracks,

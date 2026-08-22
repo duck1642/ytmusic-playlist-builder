@@ -5,6 +5,8 @@ from playlist_builder.ytmusic import (
     ArtistReference,
     YtMusicAdapter,
     YtMusicError,
+    canonical_artist_key,
+    normalize_artist_name,
     parse_artist_input,
 )
 
@@ -63,6 +65,13 @@ def test_parse_artist_input_accepts_name_url_and_url_only_forms() -> None:
     assert channel.channel_id == "UC-RADIOHEAD"
 
 
+def test_canonical_artist_keys_ignore_query_variants_but_keep_name_conservative() -> None:
+    assert canonical_artist_key(" Radiohead ") == "name:radiohead"
+    assert canonical_artist_key("https://music.youtube.com/@Radiohead?si=one") == "handle:radiohead"
+    assert canonical_artist_key("https://music.youtube.com/@radiohead?si=two") == "handle:radiohead"
+    assert normalize_artist_name("  Café  del  Mar ") == "café del mar"
+
+
 def test_resolve_artist_uses_channel_url_without_search() -> None:
     client = FakeYtMusic()
     adapter = YtMusicAdapter(client)
@@ -96,6 +105,32 @@ def test_resolve_artist_uses_handle_as_search_fallback() -> None:
         channel_id="UC-RADIOHEAD",
     )
     assert client.calls == [("search", "radiohead", "artists", 10)]
+
+
+def test_resolve_artist_prefers_handle_when_name_and_url_are_both_given() -> None:
+    class NamedHandleClient(FakeYtMusic):
+        def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
+            self.calls.append(("search", query, filter, limit))
+            return [{"resultType": "artist", "browseId": "UC-RADIOHEAD", "artist": "Radiohead"}]
+
+    client = NamedHandleClient()
+    result = YtMusicAdapter(client).resolve_artist(
+        "The Correct Label | https://music.youtube.com/@radiohead"
+    )
+
+    assert result.display_name == "The Correct Label"
+    assert client.calls == [("search", "radiohead", "artists", 10)]
+
+
+def test_resolve_artist_reuses_in_memory_aliases() -> None:
+    client = FakeYtMusic()
+    adapter = YtMusicAdapter(client)
+
+    first = adapter.resolve_artist("Gojira")
+    second = adapter.resolve_artist("gojira")
+
+    assert first == second
+    assert client.calls == [("search", "Gojira", "artists", 10)]
 
 
 def test_parse_artist_input_rejects_unsupported_url_shape() -> None:

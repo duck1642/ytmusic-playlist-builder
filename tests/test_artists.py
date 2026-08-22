@@ -5,6 +5,7 @@ from playlist_builder.artists import (
     create_playlist_file,
     delete_playlist_file,
     read_artist_file,
+    read_artist_entries,
     read_artist_lists,
     rename_playlist_file,
     validate_playlist_name,
@@ -20,6 +21,17 @@ def test_read_artist_file_ignores_comments_blanks_and_case_insensitive_duplicate
     )
 
     assert read_artist_file(artist_file) == ["Radiohead", "Deftones"]
+
+
+def test_read_artist_entries_preserves_duplicate_lines_and_locations(tmp_path: Path) -> None:
+    artist_file = tmp_path / "rock.txt"
+    artist_file.write_text("# comment\nRadiohead\n\nradiohead\n", encoding="utf-8")
+    entries = read_artist_entries(artist_file)
+
+    assert [(entry.line_number, entry.value) for entry in entries] == [
+        (2, "Radiohead"),
+        (4, "radiohead"),
+    ]
 
 
 def test_read_artist_lists_uses_sorted_txt_files_as_genres(tmp_path: Path) -> None:

@@ -68,6 +68,7 @@ def test_textual_app_loads_project_summary(tmp_path: Path) -> None:
         async with app.run_test(size=(120, 40)) as pilot:
             table = app.query_one("#genres", DataTable)
             assert len(table.rows) == 1
+            assert app.query_one("#validate", Button)
             await pilot.click("#exit")
 
     asyncio.run(scenario())
@@ -92,6 +93,7 @@ def test_textual_command_palette_is_enabled_and_lists_app_actions(tmp_path: Path
             command_list = app.screen.query_one(CommandList)
             command_text = "\n".join(str(option.prompt) for option in command_list.options)
             assert "Dry-run planını göster" in command_text
+            assert "Sanatçı girdilerini doğrula" in command_text
             assert "Playlistleri düzenle" in command_text
             assert "Sol paneli küçült" in command_text
             assert "Panel boyutlarını sıfırla" in command_text

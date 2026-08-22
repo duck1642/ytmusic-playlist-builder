@@ -3,18 +3,35 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
 from .auth import AuthError, setup_oauth as create_oauth_file
-from .artists import read_artist_lists
+from .artists import read_artist_entry_lists
 from .catalog import CatalogCollector
 from .config import ConfigError, load_config
 from .events import append_event
 from .playlists import PlaylistReport, PlaylistWriter
 from .processing import prepare_tracks
-from .state import BuildState, StateError, load_state, save_state
-from .ytmusic import ArtistReference, YtMusicAdapter, YtMusicError, parse_artist_input
+from .state import (
+    ArtistAlias,
+    BuildState,
+    StateError,
+    artist_alias_is_fresh,
+    load_state,
+    save_state,
+)
+from .validation import format_validation_report, validate_artist_files
+from .ytmusic import (
+    ArtistInput,
+    ArtistReference,
+    YtMusicAdapter,
+    YtMusicError,
+    canonical_artist_key,
+    normalize_artist_name,
+    parse_artist_input,
+)
 
 
 def _state_key(name: str) -> str:
@@ -26,6 +43,19 @@ def _emit(message: str, progress_fn: Callable[[str], None] | None) -> None:
         print(message)
     else:
         progress_fn(message)
+
+
+def _configure_console_encoding() -> None:
+    """Keep Turkish status/error messages printable on legacy Windows consoles."""
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            continue
 
 
 def _log_report(log_path: Path, genre: str, report: PlaylistReport) -> None:
@@ -42,6 +72,59 @@ def _log_report(log_path: Path, genre: str, report: PlaylistReport) -> None:
     )
 
 
+def validate(
+    config_path: Path,
+    *,
+    output_fn: Callable[[str], None] | None = None,
+) -> int:
+    if output_fn is None:
+        _configure_console_encoding()
+        output_fn = print
+    config = load_config(config_path)
+    report = validate_artist_files(config.artists_dir)
+    for line in format_validation_report(report):
+        output_fn(line)
+    return 0 if report.is_valid else 1
+
+
+def _artist_alias_keys(artist_input: ArtistInput, artist: ArtistReference) -> set[str]:
+    keys = {
+        canonical_artist_key(artist_input),
+        f"channel:{artist.channel_id}",
+        f"name:{normalize_artist_name(artist.display_name)}",
+    }
+    if artist_input.display_name:
+        keys.add(f"name:{normalize_artist_name(artist_input.display_name)}")
+    if artist_input.handle:
+        keys.add(f"handle:{artist_input.handle.casefold()}")
+    return keys
+
+
+def _cached_artist_alias(
+    state: BuildState,
+    artist_input: ArtistInput,
+    max_age_days: int,
+) -> ArtistReference | None:
+    alias = state.artist_aliases.get(canonical_artist_key(artist_input))
+    if alias is None or not artist_alias_is_fresh(alias, max_age_days):
+        return None
+    return ArtistReference(artist_input.raw, alias.display_name, alias.channel_id)
+
+
+def _remember_artist_alias(
+    state: BuildState,
+    artist_input: ArtistInput,
+    artist: ArtistReference,
+) -> None:
+    alias = ArtistAlias(
+        channel_id=artist.channel_id,
+        display_name=artist.display_name,
+        resolved_at=datetime.now(timezone.utc).isoformat(),
+    )
+    for key in _artist_alias_keys(artist_input, artist):
+        state.artist_aliases[key] = alias
+
+
 def run(
     config_path: Path,
     *,
@@ -52,7 +135,7 @@ def run(
     if config.auth_file is None:
         raise ConfigError("auth_file is required to build YouTube Music playlists")
 
-    artist_lists = read_artist_lists(config.artists_dir)
+    artist_lists = read_artist_entry_lists(config.artists_dir)
     state_path = config.state_dir / "build_state.json"
     log_path = config.logs_dir / "build.jsonl"
     state = load_state(state_path)
@@ -68,17 +151,64 @@ def run(
         if progress_fn is not None:
             progress_fn(f"{genre}: {len(artist_names)} sanatçı işlenecek")
         raw_tracks = []
-        for artist_name in artist_names:
+        seen_input_keys: set[str] = set()
+        seen_channel_ids: set[str] = set()
+        for entry in artist_names:
+            artist_name = entry.value
             try:
                 artist_input = parse_artist_input(artist_name)
+                input_key = canonical_artist_key(artist_input)
+                if input_key in seen_input_keys:
+                    append_event(
+                        log_path,
+                        "artist_duplicate",
+                        genre=genre,
+                        artist=artist_name,
+                        line_number=entry.line_number,
+                        duplicate_key=input_key,
+                        reason="same normalized input",
+                    )
+                    if progress_fn is not None:
+                        progress_fn(
+                            f"{genre} / {artist_name}: duplicate, atlandı "
+                            f"(satır {entry.line_number})"
+                        )
+                    continue
+                seen_input_keys.add(input_key)
+
+                artist = _cached_artist_alias(
+                    state,
+                    artist_input,
+                    config.artist_cache_ttl_days,
+                )
                 key = _state_key(artist_name)
                 channel_id = state.artist_ids.get(key)
-                if channel_id is not None:
+                if artist is None and channel_id is not None:
                     artist = ArtistReference(artist_name, artist_input.label, channel_id)
-                else:
+                elif artist is None:
                     artist = api.resolve_artist(artist_input)
                     if not dry_run:
                         state.artist_ids[key] = artist.channel_id
+                        _remember_artist_alias(state, artist_input, artist)
+
+                if artist.channel_id in seen_channel_ids:
+                    append_event(
+                        log_path,
+                        "artist_duplicate",
+                        genre=genre,
+                        artist=artist_name,
+                        line_number=entry.line_number,
+                        channel_id=artist.channel_id,
+                        reason="same resolved channel_id",
+                    )
+                    if progress_fn is not None:
+                        progress_fn(
+                            f"{genre} / {artist_name}: aynı sanatçı, katalog atlandı "
+                            f"(satır {entry.line_number})"
+                        )
+                    continue
+                seen_channel_ids.add(artist.channel_id)
+
                 artist_tracks = collector.collect_artist(artist)
                 raw_tracks.extend(artist_tracks)
                 append_event(
@@ -160,14 +290,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Create the local YouTube Music OAuth token",
     )
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate artist files without using the network",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    _configure_console_encoding()
     args = build_parser().parse_args(argv)
     try:
         if args.setup_oauth:
             return setup_oauth(args.config)
+        if args.validate:
+            return validate(args.config)
         if args.tui:
             from .tui import run_tui
 

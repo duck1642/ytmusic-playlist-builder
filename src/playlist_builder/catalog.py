@@ -37,8 +37,13 @@ class CatalogCollector:
 
     def __init__(self, api: Any) -> None:
         self.api = api
+        self._artist_cache: dict[str, list[Track]] = {}
 
     def collect_artist(self, artist: ArtistReference) -> list[Track]:
+        cached = self._artist_cache.get(artist.channel_id)
+        if cached is not None:
+            return list(cached)
+
         tracks: list[Track] = []
         for release in self.api.list_releases(artist):
             release_id = _text(release.get("browseId")) or _text(release.get("id"))
@@ -75,4 +80,5 @@ class CatalogCollector:
                         duration_seconds=_integer(raw_track.get("duration_seconds")),
                     )
                 )
+        self._artist_cache[artist.channel_id] = list(tracks)
         return tracks

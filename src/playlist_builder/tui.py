@@ -21,6 +21,7 @@ from .auth import AuthError
 from .config import ConfigError, load_config
 from .playlists import genre_label
 from .textual_driver import ClickWheelWindowsDriver
+from .validation import format_validation_report, validate_artist_files
 
 
 RunFunction = Callable[..., int]
@@ -631,6 +632,10 @@ class PlaylistBuilderApp(App[str]):
         margin: 0 0 1 0;
     }
 
+    #sidebar Button {
+        margin: 0;
+    }
+
     #sidebar #exit {
         margin: 0;
     }
@@ -642,6 +647,7 @@ class PlaylistBuilderApp(App[str]):
     BINDINGS = [
         ("d", "dry_run", "Plan"),
         ("b", "build", "Oluştur"),
+        ("v", "validate", "Doğrula"),
         ("a", "edit_artists", "Playlistler"),
         ("r", "refresh", "Yenile"),
         Binding(
@@ -698,6 +704,7 @@ class PlaylistBuilderApp(App[str]):
                 yield Static(id="status")
                 yield Button("Dry-run planı", id="dry-run", variant="primary", compact=True)
                 yield Button("Build / güncelle", id="build", variant="success", compact=True)
+                yield Button("Doğrula", id="validate", compact=True)
                 yield Button("Playlistleri düzenle", id="artists", compact=True)
                 yield Button("OAuth kurulumu", id="oauth", compact=True)
                 yield Button("Yenile", id="refresh", compact=True)
@@ -722,6 +729,8 @@ class PlaylistBuilderApp(App[str]):
             self.action_dry_run()
         elif button_id == "build":
             self.action_build()
+        elif button_id == "validate":
+            self.action_validate()
         elif button_id == "artists":
             self.action_edit_artists()
         elif button_id == "oauth":
@@ -736,6 +745,18 @@ class PlaylistBuilderApp(App[str]):
 
     def action_build(self) -> None:
         self._start_operation(dry_run=False)
+
+    def action_validate(self) -> None:
+        if self._busy:
+            return
+        try:
+            config = load_config(self.config_path)
+            report = validate_artist_files(config.artists_dir)
+        except (ConfigError, OSError) as error:
+            self._write_log(f"Doğrulama hatası: {error}")
+            return
+        for line in format_validation_report(report):
+            self._write_log(line)
 
     def action_refresh(self) -> None:
         if self._busy:
@@ -817,6 +838,11 @@ class PlaylistBuilderApp(App[str]):
             "Playlist oluştur / güncelle",
             "Sanatçı dosyalarından playlistleri oluşturur veya günceller.",
             self.action_build,
+        )
+        yield SystemCommand(
+            "Sanatçı girdilerini doğrula",
+            "Sanatçı dosyalarını ağ kullanmadan kontrol eder; duplicate satırları silmez.",
+            self.action_validate,
         )
         yield SystemCommand(
             "Playlistleri düzenle",
@@ -953,7 +979,15 @@ class PlaylistBuilderApp(App[str]):
         self._refresh_summary()
 
     def _set_action_buttons(self, *, disabled: bool) -> None:
-        for button_id in ("dry-run", "build", "artists", "oauth", "refresh", "exit"):
+        for button_id in (
+            "dry-run",
+            "build",
+            "validate",
+            "artists",
+            "oauth",
+            "refresh",
+            "exit",
+        ):
             self.query_one(f"#{button_id}", Button).disabled = disabled
 
     def _write_log(self, message: str) -> None:

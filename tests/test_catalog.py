@@ -4,7 +4,11 @@ from playlist_builder.ytmusic import ArtistReference
 
 
 class FakeCatalogApi:
+    def __init__(self) -> None:
+        self.list_releases_calls = 0
+
     def list_releases(self, reference: ArtistReference) -> list[dict[str, object]]:
+        self.list_releases_calls += 1
         assert reference.channel_id == "UC-METALLICA"
         return [
             {"browseId": "ALBUM-1983", "title": "Kill 'Em All", "type": "Album", "year": "1983"},
@@ -84,3 +88,16 @@ def test_collect_artist_maps_album_and_track_metadata_without_reordering() -> No
             album_id="SINGLE-1984",
         ),
     ]
+
+
+def test_collect_artist_caches_catalog_by_channel_id() -> None:
+    api = FakeCatalogApi()
+    collector = CatalogCollector(api)
+    first_reference = ArtistReference("Metallica", "Metallica", "UC-METALLICA")
+    second_reference = ArtistReference("Metallica | URL", "Metallica", "UC-METALLICA")
+
+    first = collector.collect_artist(first_reference)
+    second = collector.collect_artist(second_reference)
+
+    assert second == first
+    assert api.list_releases_calls == 1

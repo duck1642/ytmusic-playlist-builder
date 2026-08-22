@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -15,17 +16,34 @@ _RESERVED_PLAYLIST_NAMES = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class ArtistEntry:
+    """A non-empty artist-list line, retained with its source location."""
+
+    path: Path
+    line_number: int
+    value: str
+
+
 def _artist_key(name: str) -> str:
     return name.casefold()
+
+
+def read_artist_entries(path: Path) -> list[ArtistEntry]:
+    entries: list[ArtistEntry] = []
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        value = line.strip()
+        if not value or value.startswith("#"):
+            continue
+        entries.append(ArtistEntry(path, line_number, value))
+    return entries
 
 
 def read_artist_file(path: Path) -> list[str]:
     artists: list[str] = []
     seen: set[str] = set()
-    for line in path.read_text(encoding="utf-8").splitlines():
-        name = line.strip()
-        if not name or name.startswith("#"):
-            continue
+    for entry in read_artist_entries(path):
+        name = entry.value
         key = _artist_key(name)
         if key in seen:
             continue
@@ -104,6 +122,13 @@ def delete_playlist_file(directory: Path, name: str) -> Path:
 def read_artist_lists(directory: Path) -> dict[str, list[str]]:
     return {
         genre: read_artist_file(path)
+        for genre, path in artist_file_paths(directory).items()
+    }
+
+
+def read_artist_entry_lists(directory: Path) -> dict[str, list[ArtistEntry]]:
+    return {
+        genre: read_artist_entries(path)
         for genre, path in artist_file_paths(directory).items()
     }
 
