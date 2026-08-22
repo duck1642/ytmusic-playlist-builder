@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -131,6 +131,44 @@ def read_artist_entry_lists(directory: Path) -> dict[str, list[ArtistEntry]]:
         genre: read_artist_entries(path)
         for genre, path in artist_file_paths(directory).items()
     }
+
+
+def apply_artist_line_changes(path: Path, changes: Mapping[int, str | None]) -> None:
+    """Apply approved line changes while preserving untouched text and line endings."""
+
+    if not changes:
+        return
+    with path.open("r", encoding="utf-8", newline="") as source:
+        lines = source.read().splitlines(keepends=True)
+
+    unknown_lines = set(changes).difference(range(1, len(lines) + 1))
+    if unknown_lines:
+        raise ValueError(f"Artist file line does not exist: {path}:{min(unknown_lines)}")
+
+    updated_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        replacement = changes.get(line_number, line)
+        if replacement is None:
+            continue
+        if replacement == line:
+            updated_lines.append(line)
+            continue
+        if line.endswith("\r\n"):
+            line_ending = "\r\n"
+        elif line.endswith(("\n", "\r")):
+            line_ending = line[-1]
+        else:
+            line_ending = ""
+        updated_lines.append(replacement + line_ending)
+
+    temporary_path = path.with_name(f".{path.name}.tmp")
+    try:
+        with temporary_path.open("w", encoding="utf-8", newline="") as target:
+            target.write("".join(updated_lines))
+        temporary_path.replace(path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
 
 
 def write_artist_file(path: Path, artists: Iterable[str]) -> None:

@@ -622,3 +622,39 @@ Ham artist satırlarını ve satır numaralarını koruyan okuyucu eklendi. `--v
 - Verification: `pytest` → `66 passed`; gerçek proje üzerinde `build_playlists.py --validate` → başarılı; kaynak AST parse → başarılı; `git diff --check` → başarılı.
 - `compileall` doğrudan F: üzerindeki `__pycache__` izinleri nedeniyle kullanılmadı; test ve AST parse ile doğrulama yapıldı.
 - Sürüm `0.0.21` olarak hizalanacak.
+
+### 2026-08-22T04:12+03:00
+
+Format ve uzak sanatçı doğrulaması iki ayrı akışa ayrıldı. Eski `--validate` CLI aliası kaldırıldı; yerine ağsız `--validate-format` ve API kullanan `--validate-remote` komutları geldi. Her iki akış da yalnızca kesin duplicate satırlarını güvenli değişiklik adayı olarak gösteriyor; geçersiz veya çözülemeyen girdiler otomatik değiştirilmiyor. TXT dosyaları kullanıcı onayı olmadan değiştirilmiyor. Onaylı değişiklikler yorumları, boş satırları, satır sırasını ve satır sonlarını koruyan satır-adresli atomic yazımla uygulanıyor. Uzak doğrulama artist çözümünü ve `get_artist` ile channel sayfası kontrolünü yapıyor; aynı playlist içindeki farklı isim/URL girdilerini çözülen `channel_id` üzerinden raporluyor. Build akışı validator çağırmıyor ve TXT dosyalarına yazmıyor. TUI'de `V` format, `U` uzak doğrulama; uzak akış native command palette üzerinden de erişilebilir.
+
+#### Affected Files
+- `src/playlist_builder/artists.py`
+- `src/playlist_builder/validation.py`
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/tui.py`
+- `tests/test_artists.py`
+- `tests/test_validation.py`
+- `tests/test_ytmusic.py`
+- `tests/test_cli.py`
+- `tests/test_tui.py`
+- `README.md`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+- Eski `--validate` aliası korunmadı; kullanıcı iki doğrulama türünü komut adından açıkça seçiyor.
+- Otomatik düzeltme kapsamı yalnızca ilk occurrence korunarak duplicate satırının kaldırılmasıyla sınırlı.
+- Uzak doğrulama kalıcı alias/state kaydetmiyor; yalnızca onaylı TXT düzeltmesini uyguluyor.
+- Build sırasında mevcut API cache/deduplication davranışı korunuyor.
+
+#### Notes
+- Verification: `pytest` → `74 passed`; `git diff --check` → başarılı.
+- Sürüm `0.0.22`.
+
+### 2026-08-22T04:15+03:00
+
+Onay penceresi ile uygulama arasında artist dosyası değişirse, satırın eski değeri doğrulanmadan yazma yapılmıyor; böylece eski bir planın yeni içeriği yanlışlıkla silmesi engelleniyor.
+
+#### Notes
+- Son güvenlik değişikliğinden sonra `pytest` → `74 passed`; kaynak AST parse → `29` dosya; gerçek proje `--validate-format` → başarılı.

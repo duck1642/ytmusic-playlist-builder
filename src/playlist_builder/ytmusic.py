@@ -256,6 +256,13 @@ class YtMusicAdapter:
             raise YtMusicError(f"Multiple exact artist matches found for: {query}")
         return self._cache_artist_reference(next(iter(exact_matches.values())), artist_input)
 
+    def verify_artist(self, artist: ArtistReference) -> None:
+        """Confirm that a resolved channel has a readable YouTube Music page."""
+
+        artist_page = self._call("Artist verification", self.client.get_artist, artist.channel_id)
+        if not isinstance(artist_page, dict):
+            raise YtMusicError(f"Invalid artist response for: {artist.channel_id}")
+
     def _cache_artist_reference(
         self,
         reference: ArtistReference,

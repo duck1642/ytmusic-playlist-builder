@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from playlist_builder.cli import run, validate
+import pytest
+
+from playlist_builder.cli import build_parser, run, validate_format, validate_remote
 from playlist_builder.state import load_state
 from playlist_builder.ytmusic import ArtistInput, ArtistReference, parse_artist_input
 
@@ -72,12 +74,54 @@ def _write_config(tmp_path: Path) -> Path:
     return config_path
 
 
-def test_validate_command_is_network_free_and_returns_issue_status(tmp_path: Path) -> None:
+def test_validate_format_command_is_network_free_and_requires_approval_for_changes(
+    tmp_path: Path,
+) -> None:
     config_path = _write_config(tmp_path)
     output: list[str] = []
 
-    assert validate(config_path, output_fn=output.append) == 1
+    assert validate_format(config_path, output_fn=output.append, input_fn=lambda _: "n") == 1
     assert any("rock.txt:2" in line for line in output)
+
+
+def test_parser_exposes_two_validation_modes_without_old_alias() -> None:
+    format_args = build_parser().parse_args(["--validate-format"])
+    remote_args = build_parser().parse_args(["--validate-remote"])
+
+    assert format_args.validate_format is True
+    assert remote_args.validate_remote is True
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["--validate"])
+
+
+class FakeRemoteApi:
+    def resolve_artist(self, value: str | ArtistInput) -> ArtistReference:
+        artist_input = value if isinstance(value, ArtistInput) else parse_artist_input(value)
+        return ArtistReference(artist_input.raw, artist_input.label, "UC-RADIOHEAD")
+
+    def verify_artist(self, _artist: ArtistReference) -> None:
+        return None
+
+
+def test_validate_remote_only_applies_changes_after_approval(tmp_path: Path, monkeypatch) -> None:
+    config_path = _write_config(tmp_path)
+    api = FakeRemoteApi()
+
+    def fake_from_auth(cls, *_args, **_kwargs):
+        return api
+
+    monkeypatch.setattr(
+        "playlist_builder.cli.YtMusicAdapter.from_auth",
+        classmethod(fake_from_auth),
+    )
+
+    artist_file = tmp_path / "artists" / "rock.txt"
+    original = artist_file.read_text(encoding="utf-8")
+    assert validate_remote(config_path, input_fn=lambda _: "n") == 1
+    assert artist_file.read_text(encoding="utf-8") == original
+
+    assert validate_remote(config_path, input_fn=lambda _: "y") == 0
+    assert artist_file.read_text(encoding="utf-8") == "Radiohead\n"
 
 
 def test_run_deduplicates_per_playlist_and_reuses_aliases_and_catalog(

@@ -165,6 +165,15 @@ def test_list_releases_fetches_full_album_and_single_sections() -> None:
     ]
 
 
+def test_verify_artist_checks_the_artist_page() -> None:
+    client = FakeYtMusic()
+    adapter = YtMusicAdapter(client)
+
+    adapter.verify_artist(ArtistReference("Gojira", "Gojira", "UC-GOJIRA"))
+
+    assert client.calls == [("get_artist", "UC-GOJIRA")]
+
+
 def test_from_auth_passes_oauth_credentials(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     auth_file = tmp_path / "oauth.json"
     client_file = tmp_path / "client_secret.json"

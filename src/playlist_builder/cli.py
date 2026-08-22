@@ -22,7 +22,15 @@ from .state import (
     load_state,
     save_state,
 )
-from .validation import format_validation_report, validate_artist_files
+from .validation import (
+    ArtistFileChange,
+    apply_artist_changes,
+    format_change_plan,
+    format_remote_validation_report,
+    format_validation_report,
+    validate_format_files,
+    validate_remote_artist_files,
+)
 from .ytmusic import (
     ArtistInput,
     ArtistReference,
@@ -72,19 +80,85 @@ def _log_report(log_path: Path, genre: str, report: PlaylistReport) -> None:
     )
 
 
-def validate(
+def _confirm_changes(
+    changes: tuple[ArtistFileChange, ...],
+    *,
+    output_fn: Callable[[str], None],
+    input_fn: Callable[[str], str],
+) -> bool:
+    for line in format_change_plan(changes):
+        output_fn(line)
+    try:
+        answer = input_fn("Değişiklikler uygulansın mı? [y/N]: ")
+    except EOFError:
+        output_fn("Onay alınamadı; değişiklikler uygulanmadı.")
+        return False
+    return answer.strip().casefold() in {"y", "yes", "e", "evet"}
+
+
+def _validation_status(report: object, *, changes_applied: bool) -> int:
+    issues = getattr(report, "issues")
+    if not issues:
+        return 0
+    if not changes_applied:
+        return 1
+    changes = getattr(report, "changes")
+    fixed_lines = {(change.path, change.line_number) for change in changes}
+    return 0 if all((issue.path, issue.line_number) in fixed_lines for issue in issues) else 1
+
+
+def validate_format(
     config_path: Path,
     *,
     output_fn: Callable[[str], None] | None = None,
+    input_fn: Callable[[str], str] = input,
 ) -> int:
     if output_fn is None:
         _configure_console_encoding()
         output_fn = print
     config = load_config(config_path)
-    report = validate_artist_files(config.artists_dir)
+    report = validate_format_files(config.artists_dir)
     for line in format_validation_report(report):
         output_fn(line)
-    return 0 if report.is_valid else 1
+    changes_applied = False
+    if report.changes:
+        if _confirm_changes(report.changes, output_fn=output_fn, input_fn=input_fn):
+            apply_artist_changes(report.changes)
+            changes_applied = True
+            output_fn(f"{len(report.changes)} güvenli düzeltme uygulandı.")
+        else:
+            output_fn("Değişiklikler uygulanmadı.")
+    return _validation_status(report, changes_applied=changes_applied)
+
+
+def validate_remote(
+    config_path: Path,
+    *,
+    output_fn: Callable[[str], None] | None = None,
+    input_fn: Callable[[str], str] = input,
+) -> int:
+    if output_fn is None:
+        _configure_console_encoding()
+        output_fn = print
+    config = load_config(config_path)
+    if config.auth_file is None:
+        raise ConfigError("auth_file is required for remote artist validation")
+    api = YtMusicAdapter.from_auth(
+        config.auth_file,
+        oauth_client_file=config.oauth_client_file,
+    )
+    report = validate_remote_artist_files(config.artists_dir, api)
+    for line in format_remote_validation_report(report):
+        output_fn(line)
+    changes_applied = False
+    if report.changes:
+        if _confirm_changes(report.changes, output_fn=output_fn, input_fn=input_fn):
+            apply_artist_changes(report.changes)
+            changes_applied = True
+            output_fn(f"{len(report.changes)} güvenli düzeltme uygulandı.")
+        else:
+            output_fn("Değişiklikler uygulanmadı.")
+    return _validation_status(report, changes_applied=changes_applied)
 
 
 def _artist_alias_keys(artist_input: ArtistInput, artist: ArtistReference) -> set[str]:
@@ -290,10 +364,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Create the local YouTube Music OAuth token",
     )
-    parser.add_argument(
-        "--validate",
+    validation_group = parser.add_mutually_exclusive_group()
+    validation_group.add_argument(
+        "--validate-format",
         action="store_true",
-        help="Validate artist files without using the network",
+        help="Validate artist-file format and local duplicates without using the network",
+    )
+    validation_group.add_argument(
+        "--validate-remote",
+        action="store_true",
+        help="Resolve artists through YouTube Music and detect channel duplicates",
     )
     return parser
 
@@ -304,8 +384,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.setup_oauth:
             return setup_oauth(args.config)
-        if args.validate:
-            return validate(args.config)
+        if args.validate_format:
+            return validate_format(args.config)
+        if args.validate_remote:
+            return validate_remote(args.config)
         if args.tui:
             from .tui import run_tui
 

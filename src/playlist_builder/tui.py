@@ -21,11 +21,19 @@ from .auth import AuthError
 from .config import ConfigError, load_config
 from .playlists import genre_label
 from .textual_driver import ClickWheelWindowsDriver
-from .validation import format_validation_report, validate_artist_files
+from .ytmusic import YtMusicError
+from .validation import (
+    ArtistFileChange,
+    apply_artist_changes,
+    format_change_plan,
+    format_validation_report,
+    validate_format_files,
+)
 
 
 RunFunction = Callable[..., int]
 SetupOAuthFunction = Callable[[Path], int]
+ValidateRemoteFunction = Callable[..., int]
 AppFactory = Callable[..., "PlaylistBuilderApp"]
 
 
@@ -79,6 +87,69 @@ class ConfirmPlaylistDeleteScreen(ModalScreen[bool]):
         self.dismiss(True)
 
     def action_cancel_delete(self) -> None:
+        self.dismiss(False)
+
+
+class ConfirmArtistChangesScreen(ModalScreen[bool]):
+    """Confirm safe duplicate-line removals found by format validation."""
+
+    CSS = """
+    ConfirmArtistChangesScreen {
+        align: center middle;
+        background: $background 90%;
+    }
+
+    #artist-change-dialog {
+        width: 72;
+        max-width: 90%;
+        height: auto;
+        max-height: 80%;
+        padding: 1 2;
+        border: round $warning;
+        background: $panel;
+    }
+
+    #artist-change-list {
+        height: auto;
+        min-height: 2;
+        max-height: 14;
+        margin: 1 0;
+    }
+
+    #artist-change-dialog Button {
+        width: 1fr;
+        margin: 0 1 0 0;
+    }
+    """
+    BINDINGS = [
+        ("y", "confirm_changes", "Uygula"),
+        ("n", "cancel_changes", "Vazgeç"),
+        ("escape", "cancel_changes", "Vazgeç"),
+    ]
+
+    def __init__(self, changes: tuple[ArtistFileChange, ...]) -> None:
+        super().__init__()
+        self.changes = changes
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="artist-change-dialog"):
+            yield Static("Güvenli duplicate düzeltmeleri uygulansın mı?")
+            with VerticalScroll(id="artist-change-list"):
+                yield Static("\n".join(format_change_plan(self.changes)))
+            with Horizontal():
+                yield Button("Uygula", id="confirm-changes", variant="success", compact=True)
+                yield Button("Vazgeç", id="cancel-changes", compact=True)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "confirm-changes":
+            self.action_confirm_changes()
+        elif event.button.id == "cancel-changes":
+            self.action_cancel_changes()
+
+    def action_confirm_changes(self) -> None:
+        self.dismiss(True)
+
+    def action_cancel_changes(self) -> None:
         self.dismiss(False)
 
 
@@ -647,7 +718,8 @@ class PlaylistBuilderApp(App[str]):
     BINDINGS = [
         ("d", "dry_run", "Plan"),
         ("b", "build", "Oluştur"),
-        ("v", "validate", "Doğrula"),
+        ("v", "validate_format", "Format"),
+        ("u", "validate_remote", "Uzak"),
         ("a", "edit_artists", "Playlistler"),
         ("r", "refresh", "Yenile"),
         Binding(
@@ -704,7 +776,7 @@ class PlaylistBuilderApp(App[str]):
                 yield Static(id="status")
                 yield Button("Dry-run planı", id="dry-run", variant="primary", compact=True)
                 yield Button("Build / güncelle", id="build", variant="success", compact=True)
-                yield Button("Doğrula", id="validate", compact=True)
+                yield Button("Format doğrula", id="validate-format", compact=True)
                 yield Button("Playlistleri düzenle", id="artists", compact=True)
                 yield Button("OAuth kurulumu", id="oauth", compact=True)
                 yield Button("Yenile", id="refresh", compact=True)
@@ -729,8 +801,8 @@ class PlaylistBuilderApp(App[str]):
             self.action_dry_run()
         elif button_id == "build":
             self.action_build()
-        elif button_id == "validate":
-            self.action_validate()
+        elif button_id == "validate-format":
+            self.action_validate_format()
         elif button_id == "artists":
             self.action_edit_artists()
         elif button_id == "oauth":
@@ -746,17 +818,44 @@ class PlaylistBuilderApp(App[str]):
     def action_build(self) -> None:
         self._start_operation(dry_run=False)
 
-    def action_validate(self) -> None:
+    def action_validate_format(self) -> None:
         if self._busy:
             return
         try:
             config = load_config(self.config_path)
-            report = validate_artist_files(config.artists_dir)
+            report = validate_format_files(config.artists_dir)
         except (ConfigError, OSError) as error:
             self._write_log(f"Doğrulama hatası: {error}")
             return
         for line in format_validation_report(report):
             self._write_log(line)
+        if report.changes:
+            self.push_screen(
+                ConfirmArtistChangesScreen(report.changes),
+                lambda confirmed: self._after_format_confirmation(confirmed, report.changes),
+            )
+
+    def _after_format_confirmation(
+        self,
+        confirmed: bool | None,
+        changes: tuple[ArtistFileChange, ...],
+    ) -> None:
+        if not confirmed:
+            self._write_log("Değişiklikler uygulanmadı.")
+            return
+        try:
+            apply_artist_changes(changes)
+        except (OSError, ValueError) as error:
+            self._write_log(f"Düzeltme uygulanamadı: {error}")
+            return
+        self._write_log(f"{len(changes)} güvenli düzeltme uygulandı.")
+        self._refresh_summary()
+
+    def action_validate_remote(self) -> None:
+        if self._busy:
+            return
+        self._write_log("Uzak doğrulama için arayüz kapatılıyor...")
+        self.exit("remote-validate")
 
     def action_refresh(self) -> None:
         if self._busy:
@@ -840,9 +939,14 @@ class PlaylistBuilderApp(App[str]):
             self.action_build,
         )
         yield SystemCommand(
-            "Sanatçı girdilerini doğrula",
-            "Sanatçı dosyalarını ağ kullanmadan kontrol eder; duplicate satırları silmez.",
-            self.action_validate,
+            "Format girdilerini doğrula",
+            "Sanatçı dosyalarını ağ kullanmadan kontrol eder; onayla duplicate satırlarını siler.",
+            self.action_validate_format,
+        )
+        yield SystemCommand(
+            "Uzak doğrulama çalıştır",
+            "Sanatçıları API ile çözer, channel duplicate'lerini tespit eder ve onay ister.",
+            self.action_validate_remote,
         )
         yield SystemCommand(
             "Playlistleri düzenle",
@@ -982,7 +1086,7 @@ class PlaylistBuilderApp(App[str]):
         for button_id in (
             "dry-run",
             "build",
-            "validate",
+            "validate-format",
             "artists",
             "oauth",
             "refresh",
@@ -1001,6 +1105,7 @@ def run_tui(
     output_fn: Callable[[str], None] = print,
     run_fn: RunFunction | None = None,
     setup_oauth_fn: SetupOAuthFunction | None = None,
+    validate_remote_fn: ValidateRemoteFunction | None = None,
     app_factory: AppFactory | None = None,
 ) -> int:
     """Run the Textual UI and keep the blocking OAuth flow outside it."""
@@ -1012,13 +1117,32 @@ def run_tui(
         from .cli import setup_oauth
 
         setup_oauth_fn = setup_oauth
+    if validate_remote_fn is None:
+        from .cli import validate_remote
+
+        validate_remote_fn = validate_remote
     if app_factory is None:
         app_factory = PlaylistBuilderApp
 
-    del input_fn  # Kept for compatibility with the previous TUI API.
     while True:
         app = app_factory(config_path, run_fn=run_fn)
         result = app.run()
+        if result == "remote-validate":
+            output_fn("Uzak doğrulama başlıyor...")
+            try:
+                status = validate_remote_fn(
+                    config_path,
+                    output_fn=output_fn,
+                    input_fn=input_fn,
+                )
+            except (AuthError, ConfigError, OSError, YtMusicError) as error:
+                output_fn(f"Hata: {error}")
+                continue
+            if status == 0:
+                output_fn("Uzak doğrulama tamamlandı.")
+            else:
+                output_fn(f"Uzak doğrulama hata koduyla tamamlandı: {status}")
+            continue
         if result != "oauth":
             return 0
 

@@ -68,7 +68,7 @@ def test_textual_app_loads_project_summary(tmp_path: Path) -> None:
         async with app.run_test(size=(120, 40)) as pilot:
             table = app.query_one("#genres", DataTable)
             assert len(table.rows) == 1
-            assert app.query_one("#validate", Button)
+            assert app.query_one("#validate-format", Button)
             await pilot.click("#exit")
 
     asyncio.run(scenario())
@@ -93,7 +93,8 @@ def test_textual_command_palette_is_enabled_and_lists_app_actions(tmp_path: Path
             command_list = app.screen.query_one(CommandList)
             command_text = "\n".join(str(option.prompt) for option in command_list.options)
             assert "Dry-run planını göster" in command_text
-            assert "Sanatçı girdilerini doğrula" in command_text
+            assert "Format girdilerini doğrula" in command_text
+            assert "Uzak doğrulama çalıştır" in command_text
             assert "Playlistleri düzenle" in command_text
             assert "Sol paneli küçült" in command_text
             assert "Panel boyutlarını sıfırla" in command_text
@@ -383,3 +384,33 @@ def test_run_tui_restarts_after_oauth(tmp_path: Path) -> None:
     )
     assert oauth_calls == [config_path]
     assert output == ["OAuth kurulumu başlıyor...", "OAuth kurulumu tamamlandı."]
+
+
+def test_run_tui_runs_remote_validation_outside_textual(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    actions = iter(["remote-validate", "exit"])
+    calls: list[Path] = []
+    output: list[str] = []
+
+    class FakeApp:
+        def __init__(self, _config_path: Path, *, run_fn: object) -> None:
+            self.run_fn = run_fn
+
+        def run(self) -> str:
+            return next(actions)
+
+    def fake_validate(config: Path, *, output_fn: object, input_fn: object) -> int:
+        calls.append(config)
+        return 0
+
+    assert (
+        run_tui(
+            config_path,
+            output_fn=output.append,
+            validate_remote_fn=fake_validate,
+            app_factory=FakeApp,
+        )
+        == 0
+    )
+    assert calls == [config_path]
+    assert output == ["Uzak doğrulama başlıyor...", "Uzak doğrulama tamamlandı."]

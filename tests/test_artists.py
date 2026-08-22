@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from playlist_builder.artists import (
+    apply_artist_line_changes,
     artist_file_paths,
     create_playlist_file,
     delete_playlist_file,
@@ -59,6 +60,15 @@ def test_write_artist_file_deduplicates_and_sorts_names(tmp_path: Path) -> None:
     write_artist_file(artist_file, ["Radiohead", "deftones", " radiohead ", "Deftones"])
 
     assert artist_file.read_text(encoding="utf-8") == "deftones\nRadiohead\n"
+
+
+def test_apply_artist_line_changes_preserves_untouched_text(tmp_path: Path) -> None:
+    artist_file = tmp_path / "rock.txt"
+    artist_file.write_bytes(b"# keep\r\nRadiohead\r\nradiohead\r\nDeftones\r\n")
+
+    apply_artist_line_changes(artist_file, {3: None})
+
+    assert artist_file.read_bytes() == b"# keep\r\nRadiohead\r\nDeftones\r\n"
 
 
 def test_playlist_file_lifecycle_uses_the_user_defined_name(tmp_path: Path) -> None:
