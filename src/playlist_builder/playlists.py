@@ -83,7 +83,14 @@ class PlaylistWriter:
         desired_ids = _unique(track.video_id for track in tracks)
         previous_generated = _unique(state.generated_video_ids.get(title, []))
         removed_ids = _unique(state.removed_video_ids.get(title, []))
+        saved_playlist_id = state.playlist_ids.get(title)
         playlist_id = self._find_playlist_id(title, state)
+        playlist_identity_changed = (
+            saved_playlist_id is not None and playlist_id != saved_playlist_id
+        )
+        if playlist_identity_changed:
+            previous_generated = []
+            removed_ids = []
         created = False
         playlist_exists = playlist_id is not None
 

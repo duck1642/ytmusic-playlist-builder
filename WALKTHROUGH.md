@@ -1061,3 +1061,31 @@ Son Leibniz incelemesindeki eski persisted `handle:*` alias'larının yeni fail-
 
 - Verification: `tests/test_state.py tests/test_cli.py` → `16 passed`.
 - Sürüm `0.0.35` olarak hizalandı.
+
+### 2026-08-22T13:31+03:00
+
+#### Task
+
+Hakem incelemesinde bulunan, eski playlist ID'si yeni bir aynı başlıklı playlist ile değiştiğinde eski track geçmişinin yeni playlist'e taşınması sorununu düzeltmek.
+
+#### Summary
+
+`PlaylistWriter.sync_playlist()` artık state'teki kayıtlı playlist ID'si ile seçilen remote playlist ID'sini karşılaştırıyor. Kimlik değişmişse önceki generated ve manually removed track geçmişi sıfırlanıyor; yeni playlist mevcut RAW girdileriyle yeniden senkronize ediliyor.
+
+#### Affected Files
+
+- `src/playlist_builder/playlists.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_playlists.py`
+
+#### Decisions
+
+- Track geçmişi playlist başlığına değil, playlist kimliğine özgü kabul ediliyor.
+- Aynı başlıklı yeni playlist seçildiğinde eski playlist'ten manuel silme varsayımı taşınmıyor.
+- Değişiklik mevcut sync akışına küçük bir kimlik geçişi kontrolü olarak eklendi; ayrı migration formatı oluşturulmadı.
+
+#### Notes
+
+- Aynı başlıklı yeni ID için regression testi eklendi.
+- Hedefli playlist testleri: `11 passed`.
+- Sürüm `0.0.36` olarak hizalandı.

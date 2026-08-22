@@ -144,6 +144,28 @@ def test_recreated_playlist_does_not_mark_previous_tracks_as_removed() -> None:
     assert state.generated_video_ids == {"rock": ["new"]}
 
 
+def test_recreated_same_title_playlist_resets_identity_history() -> None:
+    api = FakePlaylistApi(
+        [{"playlistId": "PL-NEW", "title": "rock"}],
+        {"PL-NEW": []},
+    )
+    state = BuildState(
+        playlist_ids={"rock": "PL-OLD"},
+        generated_video_ids={"rock": ["old", "missing"]},
+        removed_video_ids={"rock": ["removed"]},
+    )
+
+    report = PlaylistWriter(api).sync_playlist(
+        "rock", [track("old"), track("new")], state, privacy="PRIVATE"
+    )
+
+    assert report.manually_removed_video_ids == ()
+    assert api.added == [("PL-NEW", ["old", "new"])]
+    assert state.playlist_ids == {"rock": "PL-NEW"}
+    assert state.removed_video_ids == {"rock": []}
+    assert state.generated_video_ids == {"rock": ["old", "new"]}
+
+
 def test_saved_playlist_id_is_preferred_over_duplicate_title_match() -> None:
     api = FakePlaylistApi(
         [
