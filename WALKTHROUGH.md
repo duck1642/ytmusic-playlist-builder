@@ -977,3 +977,29 @@ PlaylistWriter artık state'teki kayıtlı ID'yi yalnızca güncel playlist list
 
 - Verification: `tests/test_playlists.py` → `10 passed`.
 - Sürüm `0.0.32` olarak hizalandı.
+
+### 2026-08-22T12:37+03:00
+
+#### Task
+
+Leibniz incelemesindeki handle aramasında tek metadata'sız sonucun yanlış sanatçı kabul edilebilmesi bulgusunu düzeltmek.
+
+#### Summary
+
+Handle girdileri artık yalnızca arama sonucunda açık handle metadata'sı (`handle`, `artistHandle` veya `channelHandle`) istenen handle ile eşleşirse çözümleniyor. Tek bir artist sonucu dönmesi artık kimlik kanıtı sayılmıyor; doğrulanamayan handle kontrollü bir `YtMusicError` ile reddediliyor.
+
+#### Affected Files
+
+- `src/playlist_builder/ytmusic.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_ytmusic.py`
+
+#### Decisions
+
+- Kurulu `ytmusicapi` sürümünde standart artist arama sonucunda handle alanı bulunmadığı için metadata'sız fallback kaldırıldı.
+- Yanlış kanala bağlanma riski, bazı handle URL'lerinin doğrulanamayıp reddedilmesi pahasına fail-closed davranışla azaltıldı.
+
+#### Notes
+
+- Verification: `tests/test_ytmusic.py` → `21 passed`.
+- Sürüm `0.0.33` olarak hizalandı.

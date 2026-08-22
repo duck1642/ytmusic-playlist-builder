@@ -243,8 +243,6 @@ class YtMusicAdapter:
             limit=10,
         )
         exact_matches: dict[str, ArtistReference] = {}
-        artist_results: list[tuple[dict[str, Any], str, str]] = []
-        has_result_handles = False
         for result in results:
             if not isinstance(result, dict):
                 continue
@@ -255,10 +253,8 @@ class YtMusicAdapter:
             channel_id = _result_id(result)
             if display_name is None or channel_id is None:
                 continue
-            artist_results.append((result, display_name, channel_id))
             if artist_input.handle is not None:
                 result_handle = _result_handle(result)
-                has_result_handles = has_result_handles or result_handle is not None
                 matches = (
                     result_handle is not None
                     and _handle_match_key(result_handle) == _handle_match_key(query)
@@ -272,21 +268,13 @@ class YtMusicAdapter:
                     channel_id,
                 )
 
-        if (
-            artist_input.handle is not None
-            and not exact_matches
-            and not has_result_handles
-            and len(artist_results) == 1
-        ):
-            _, display_name, channel_id = artist_results[0]
-            exact_matches[channel_id] = ArtistReference(
-                artist_input.raw,
-                artist_input.display_name or display_name,
-                channel_id,
-            )
-
         if len(exact_matches) != 1:
             if not exact_matches:
+                if artist_input.handle is not None:
+                    raise YtMusicError(
+                        f"Could not verify artist handle @{query}: "
+                        "no exact handle metadata was returned"
+                    )
                 raise YtMusicError(f"No exact artist match found for: {query}")
             raise YtMusicError(f"Multiple exact artist matches found for: {query}")
         return self._cache_artist_reference(next(iter(exact_matches.values())), artist_input)

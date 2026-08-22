@@ -88,22 +88,15 @@ def test_resolve_artist_uses_channel_url_without_search() -> None:
     assert client.calls == []
 
 
-def test_resolve_artist_uses_handle_as_search_fallback() -> None:
+def test_resolve_artist_rejects_unverified_handle_without_result_metadata() -> None:
     class HandleClient(FakeYtMusic):
         def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
             self.calls.append(("search", query, filter, limit))
             return [{"resultType": "artist", "browseId": "UC-RADIOHEAD", "artist": "Radiohead"}]
 
     client = HandleClient()
-    result = YtMusicAdapter(client).resolve_artist(
-        "https://music.youtube.com/@radiohead"
-    )
-
-    assert result == ArtistReference(
-        requested_name="https://music.youtube.com/@radiohead",
-        display_name="Radiohead",
-        channel_id="UC-RADIOHEAD",
-    )
+    with pytest.raises(YtMusicError, match="Could not verify artist handle"):
+        YtMusicAdapter(client).resolve_artist("https://music.youtube.com/@radiohead")
     assert client.calls == [("search", "radiohead", "artists", 10)]
 
 
@@ -116,6 +109,7 @@ def test_resolve_artist_accepts_handle_when_display_name_differs() -> None:
                     "resultType": "artist",
                     "browseId": "UC-RADIOHEAD",
                     "artist": "Radiohead",
+                    "handle": "radioheadofficial",
                 }
             ]
 
@@ -135,11 +129,21 @@ def test_resolve_artist_rejects_ambiguous_handle_search() -> None:
     class AmbiguousHandleClient(FakeYtMusic):
         def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
             return [
-                {"resultType": "artist", "browseId": "UC-ONE", "artist": "One"},
-                {"resultType": "artist", "browseId": "UC-TWO", "artist": "Two"},
+                {
+                    "resultType": "artist",
+                    "browseId": "UC-ONE",
+                    "artist": "One",
+                    "handle": "radioheadofficial",
+                },
+                {
+                    "resultType": "artist",
+                    "browseId": "UC-TWO",
+                    "artist": "Two",
+                    "handle": "radioheadofficial",
+                },
             ]
 
-    with pytest.raises(YtMusicError, match="No exact artist match"):
+    with pytest.raises(YtMusicError, match="Multiple exact artist matches"):
         YtMusicAdapter(AmbiguousHandleClient()).resolve_artist(
             "https://music.youtube.com/@radioheadofficial"
         )
@@ -182,7 +186,7 @@ def test_resolve_artist_rejects_nonmatching_explicit_result_handle() -> None:
                 }
             ]
 
-    with pytest.raises(YtMusicError, match="No exact artist match"):
+    with pytest.raises(YtMusicError, match="Could not verify artist handle"):
         YtMusicAdapter(WrongExplicitHandleClient()).resolve_artist(
             "https://music.youtube.com/@radioheadofficial"
         )
@@ -192,7 +196,14 @@ def test_resolve_artist_prefers_handle_when_name_and_url_are_both_given() -> Non
     class NamedHandleClient(FakeYtMusic):
         def search(self, query: str, *, filter: str, limit: int) -> list[dict[str, object]]:
             self.calls.append(("search", query, filter, limit))
-            return [{"resultType": "artist", "browseId": "UC-RADIOHEAD", "artist": "Radiohead"}]
+            return [
+                {
+                    "resultType": "artist",
+                    "browseId": "UC-RADIOHEAD",
+                    "artist": "Radiohead",
+                    "handle": "radiohead",
+                }
+            ]
 
     client = NamedHandleClient()
     result = YtMusicAdapter(client).resolve_artist(
