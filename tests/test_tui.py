@@ -27,7 +27,6 @@ def _write_config(tmp_path: Path) -> Path:
                 "logs_dir: logs",
                 "playlist:",
                 "  privacy: PRIVATE",
-                "  max_tracks: 550",
                 "  update_mode: append_only",
                 "filters:",
                 "  exclude_karaoke: true",

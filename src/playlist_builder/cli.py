@@ -307,7 +307,7 @@ def run(
                 if progress_fn is not None:
                     progress_fn(f"{genre} / {artist_name}: bulunamadı")
 
-        chunks = prepare_tracks(raw_tracks, config.filters, config.playlist.max_tracks)
+        chunks = prepare_tracks(raw_tracks, config.filters)
         reports = writer.sync_genre(
             genre,
             chunks,

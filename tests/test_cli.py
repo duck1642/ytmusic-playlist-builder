@@ -66,7 +66,7 @@ def _write_config(tmp_path: Path) -> Path:
                 "logs_dir: logs",
                 "artist_cache_ttl_days: 30",
                 "playlist:",
-                "  max_tracks: 550",
+                "  privacy: PRIVATE",
             )
         ),
         encoding="utf-8",
@@ -82,6 +82,8 @@ def test_validate_format_command_is_network_free_and_requires_approval_for_chang
 
     assert validate_format(config_path, output_fn=output.append, input_fn=lambda _: "n") == 1
     assert any("rock.txt:2" in line for line in output)
+    assert not (tmp_path / "state" / "build_state.json").exists()
+    assert not (tmp_path / "cache").exists()
 
 
 def test_parser_exposes_two_validation_modes_without_old_alias() -> None:
@@ -122,6 +124,8 @@ def test_validate_remote_only_applies_changes_after_approval(tmp_path: Path, mon
 
     assert validate_remote(config_path, input_fn=lambda _: "y") == 0
     assert artist_file.read_text(encoding="utf-8") == "Radiohead\n"
+    assert not (tmp_path / "state" / "build_state.json").exists()
+    assert not (tmp_path / "cache").exists()
 
 
 def test_run_deduplicates_per_playlist_and_reuses_aliases_and_catalog(

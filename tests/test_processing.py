@@ -2,7 +2,6 @@ from datetime import date
 
 from playlist_builder.models import FilterConfig, Track
 from playlist_builder.processing import (
-    chunk_tracks,
     dedupe_tracks,
     filter_tracks,
     prepare_tracks,
@@ -80,28 +79,7 @@ def test_dedupe_keeps_first_occurrence_by_video_id() -> None:
     assert result[0].album == "Album"
 
 
-def test_chunk_tracks_splits_playlist_without_reordering() -> None:
-    tracks = [track(str(index), "Artist", "Album", str(index)) for index in range(5)]
-
-    result = chunk_tracks(tracks, 2)
-
-    assert [[item.video_id for item in chunk] for chunk in result] == [
-        ["0", "1"],
-        ["2", "3"],
-        ["4"],
-    ]
-
-
-def test_chunk_tracks_rejects_non_positive_size() -> None:
-    try:
-        chunk_tracks([], 0)
-    except ValueError as error:
-        assert "positive" in str(error)
-    else:
-        raise AssertionError("chunk_tracks should reject a non-positive size")
-
-
-def test_prepare_tracks_applies_filter_sort_dedupe_and_chunking() -> None:
+def test_prepare_tracks_applies_filter_sort_and_dedupe_without_chunking() -> None:
     tracks = [
         track("duplicate", "Artist", "Album", "Song", release_year=2020, track_number=2),
         track("duplicate", "Artist", "Single", "Song", release_year=2021, track_number=1),
@@ -112,10 +90,21 @@ def test_prepare_tracks_applies_filter_sort_dedupe_and_chunking() -> None:
     result = prepare_tracks(
         tracks,
         FilterConfig(exclude_live=True),
-        max_tracks=1,
     )
 
-    assert [[item.video_id for item in chunk] for chunk in result] == [
-        ["clean"],
-        ["duplicate"],
+    assert [[item.video_id for item in chunk] for chunk in result] == [[
+        "clean",
+        "duplicate",
+    ]]
+
+
+def test_prepare_tracks_keeps_more_than_550_tracks_in_one_playlist() -> None:
+    tracks = [
+        track(str(index), "Artist", "Album", str(index), track_number=index)
+        for index in range(551)
     ]
+
+    result = prepare_tracks(tracks, FilterConfig())
+
+    assert len(result) == 1
+    assert len(result[0]) == 551

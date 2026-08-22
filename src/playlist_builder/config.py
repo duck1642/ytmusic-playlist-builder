@@ -16,7 +16,6 @@ class ConfigError(ValueError):
 @dataclass(frozen=True, slots=True)
 class PlaylistConfig:
     privacy: str = "PRIVATE"
-    max_tracks: int = 550
     update_mode: str = "append_only"
 
 
@@ -73,13 +72,6 @@ def load_config(path: Path) -> AppConfig:
     if privacy not in {"PRIVATE", "PUBLIC", "UNLISTED"}:
         raise ConfigError("playlist.privacy must be PRIVATE, PUBLIC or UNLISTED")
 
-    try:
-        max_tracks = int(playlist_data.get("max_tracks", 550))
-    except (TypeError, ValueError) as error:
-        raise ConfigError("playlist.max_tracks must be a positive integer") from error
-    if max_tracks <= 0:
-        raise ConfigError("playlist.max_tracks must be a positive integer")
-
     update_mode = str(playlist_data.get("update_mode", "append_only")).casefold()
     if update_mode != "append_only":
         raise ConfigError("Only append_only update_mode is supported")
@@ -121,7 +113,6 @@ def load_config(path: Path) -> AppConfig:
         artist_cache_ttl_days=artist_cache_ttl_days,
         playlist=PlaylistConfig(
             privacy=privacy,
-            max_tracks=max_tracks,
             update_mode=update_mode,
         ),
         filters=filter_config,

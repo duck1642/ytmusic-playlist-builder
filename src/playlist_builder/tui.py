@@ -1012,7 +1012,7 @@ class PlaylistBuilderApp(App[str]):
                 (
                     f"OAuth: {'hazır' if auth_ready else 'eksik'}",
                     f"Playlist: {config.playlist.privacy}",
-                    f"Parça limiti: {config.playlist.max_tracks}",
+                    "Parça limiti: yok",
                     f"Filtreler: {filters}",
                 )
             )

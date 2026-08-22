@@ -84,18 +84,11 @@ def dedupe_tracks(tracks: Iterable[Track]) -> list[Track]:
     return result
 
 
-def chunk_tracks(tracks: Sequence[Track], max_tracks: int) -> list[list[Track]]:
-    if max_tracks <= 0:
-        raise ValueError("max_tracks must be positive")
-    return [list(tracks[index : index + max_tracks]) for index in range(0, len(tracks), max_tracks)]
-
-
 def prepare_tracks(
     tracks: Iterable[Track],
     filter_config: FilterConfig,
-    max_tracks: int,
 ) -> list[list[Track]]:
     filtered = filter_tracks(tracks, filter_config)
     ordered = sort_tracks(filtered)
     unique = dedupe_tracks(ordered)
-    return chunk_tracks(unique, max_tracks)
+    return [unique] if unique else []

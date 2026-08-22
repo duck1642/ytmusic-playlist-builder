@@ -658,3 +658,41 @@ Onay penceresi ile uygulama arasında artist dosyası değişirse, satırın esk
 
 #### Notes
 - Son güvenlik değişikliğinden sonra `pytest` → `74 passed`; kaynak AST parse → `29` dosya; gerçek proje `--validate-format` → başarılı.
+
+### 2026-08-22T04:44+03:00
+
+#### Task
+
+Playlistlerdeki otomatik 550 parça sınırını kaldırmak ve validator cache davranışını netleştirmek.
+
+#### Summary
+
+`playlist.max_tracks` config alanı kaldırıldı. Build artık filtreleme, sıralama ve video ID duplicate ayıklamasından sonra parçaları tek playlist listesi olarak işler; 550 sınırına göre `1`, `2` şeklinde otomatik bölmez. Mevcut append-only playlist güncelleme davranışı korundu. TUI'deki limit göstergesi `yok` olarak güncellendi.
+
+Validatorlar için kalıcı cache/state yazımı olmadığını testlerle güvence altına alan kontroller eklendi. Format validator ağ kullanmıyor; remote validator API kullanıyor ancak varsa çözümleme cache'i yalnızca komut süresince bellekte kalıyor.
+
+#### Affected Files
+
+- `src/playlist_builder/config.py`
+- `src/playlist_builder/processing.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/tui.py`
+- `config.example.yaml`
+- `README.md`
+- `tests/test_processing.py`
+- `tests/test_config.py`
+- `tests/test_cli.py`
+- `tests/test_tui.py`
+- `src/playlist_builder/__init__.py`
+- `WALKTHROUGH.md`
+
+#### Decisions
+
+- Her `.txt` dosyası tek playlist hedefler; build parça sayısına göre playlist bölmez.
+- Eski yerel config dosyasındaki `playlist.max_tracks` anahtarı artık okunmuyor ve etkisizdir; manuel olarak silinebilir.
+- Validatorlar `state/build_state.json` veya `cache/` içine kalıcı veri yazmaz.
+
+#### Notes
+
+- Verification: proje `.venv` ile `pytest` → başarılı; 550 üzeri parça için tek chunk davranışı ayrıca test edildi.
+- Sürüm `0.0.23` olarak hizalandı.

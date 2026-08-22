@@ -10,6 +10,7 @@ Sanatçıları ekle → Albüm/single kataloglarını al → Filtrele ve sırala
 ```
 
 İlk sürüm yalnızca playlist oluşturma ve organize etme işine odaklanır. Telefon indirmeleri YouTube Music uygulamasından yapılır.
+Her `.txt` dosyası tek bir playlist hedefler; playlistler parça sayısına göre otomatik olarak bölünmez.
 
 ## Kullanım
 
@@ -37,7 +38,9 @@ Menüyle kullanmak için Windows'ta `run.bat` dosyasına çift tıklayın. Textu
 
 Tekrar çalıştırmak güvenlidir. `append_only` modu yeni parçaları ekler; YouTube Music'te manuel sildiğiniz parçaları state üzerinden geri eklemez. `state/build_state.json` çalışma durumunu, `logs/build.jsonl` olayları tutar; bu dosyalar Git'e alınmaz.
 
-Sanatçı çözümleme sonuçları `state/build_state.json` içindeki `artist_aliases` alanında tutulur. `artist_cache_ttl_days` varsayılan olarak 30 gündür; `0` değeri kalıcı alias cache'ini devre dışı bırakır. Aynı playlistte aynı normalize edilmiş girdi veya aynı çözümlenmiş `channel_id` tekrar gelirse ikinci katalog çağrısı atlanır; farklı playlistlerde aynı sanatçı tutulur, ancak katalog verisi build boyunca bellekte paylaşılır. `--validate-format` ve `--validate-remote` TXT dosyalarını yalnızca kullanıcı onayından sonra değiştirir; normal build akışı validator çalıştırmaz ve TXT dosyalarına yazmaz.
+Sanatçı çözümleme sonuçları `state/build_state.json` içindeki `artist_aliases` alanında tutulur. `artist_cache_ttl_days` varsayılan olarak 30 gündür; `0` değeri kalıcı alias cache'ini devre dışı bırakır. Aynı playlistte aynı normalize edilmiş girdi veya aynı çözümlenmiş `channel_id` tekrar gelirse ikinci katalog çağrısı atlanır; farklı playlistlerde aynı sanatçı tutulur, ancak katalog verisi build boyunca bellekte paylaşılır. `--validate-format` ağ kullanmaz; `--validate-remote` API kullanır ancak ne `state/build_state.json` ne de `cache/` içine kalıcı cache yazar. Remote validator'ın varsa kullandığı çözümleme cache'i yalnızca komut süresince bellektedir. Her iki validator da TXT dosyalarını yalnızca kullanıcı onayından sonra değiştirir; normal build akışı validator çalıştırmaz ve TXT dosyalarına yazmaz.
+
+Eski config dosyalarında bulunan `playlist.max_tracks` satırı artık kullanılmıyor; silinebilir.
 
 Test: `python -m pytest --basetemp=work/pytest-tmp`.
 
@@ -47,6 +50,6 @@ Test: `python -m pytest --basetemp=work/pytest-tmp`.
 - `src/`: Uygulama kodu
 - `tests/`: Testler
 - `state/`: Yerel çalışma durumu; Git'e alınmaz
-- `cache/`: API önbelleği; Git'e alınmaz
+- `cache/`: Gelecekte kullanılabilecek yerel cache dizini; mevcut build ve validator akışı kalıcı katalog cache'i yazmaz
 - `logs/`: Çalışma logları; Git'e alınmaz
 - `docs/`: Proje dokümantasyonu

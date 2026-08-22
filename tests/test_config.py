@@ -13,7 +13,6 @@ artists_dir: artists
 auth_file: auth/oauth.json
 playlist:
   privacy: PRIVATE
-  max_tracks: 25
   update_mode: append_only
 filters:
   exclude_karaoke: true
@@ -26,7 +25,6 @@ filters:
     assert config.artists_dir == tmp_path / "artists"
     assert config.auth_file == tmp_path / "auth" / "oauth.json"
     assert config.oauth_client_file == tmp_path / "auth" / "client_secret.json"
-    assert config.playlist.max_tracks == 25
     assert config.filters.exclude_karaoke is True
     assert config.artist_cache_ttl_days == 30
 
@@ -34,8 +32,6 @@ filters:
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("max_tracks", 0),
-        ("max_tracks", -1),
         ("privacy", "INVALID"),
         ("update_mode", "reconcile"),
     ],
@@ -46,10 +42,7 @@ def test_load_config_rejects_unsupported_playlist_settings(
     value: object,
 ) -> None:
     config_file = tmp_path / "config.yaml"
-    if field == "max_tracks":
-        contents = f"playlist:\n  max_tracks: {value}\n"
-    else:
-        contents = f"playlist:\n  {field}: {value}\n"
+    contents = f"playlist:\n  {field}: {value}\n"
     config_file.write_text(contents, encoding="utf-8")
 
     with pytest.raises(ConfigError):
