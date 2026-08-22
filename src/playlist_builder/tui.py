@@ -13,9 +13,10 @@ from .artists import (
     artist_file_paths,
     create_playlist_file,
     delete_playlist_file,
+    read_artist_file_lines,
     read_artist_lists,
     rename_playlist_file,
-    write_artist_file,
+    write_artist_file_preserving_layout,
 )
 from .auth import AuthError
 from .config import ConfigError, load_config
@@ -275,6 +276,7 @@ class ArtistEditorScreen(ModalScreen[str]):
         self.initial_genre = initial_genre
         self._artists: dict[str, list[str]] = {}
         self._artist_paths: dict[str, Path] = {}
+        self._artist_source_lines: dict[str, list[str]] = {}
         self._selected_genre: str | None = None
         self._dirty_genres: set[str] = set()
         self._editing_index: int | None = None
@@ -487,7 +489,13 @@ class ArtistEditorScreen(ModalScreen[str]):
             return
         try:
             for genre in sorted(self._dirty_genres):
-                write_artist_file(self._artist_paths[genre], self._artists[genre])
+                path = self._artist_paths[genre]
+                write_artist_file_preserving_layout(
+                    path,
+                    self._artist_source_lines[genre],
+                    self._artists[genre],
+                )
+                self._artist_source_lines[genre] = read_artist_file_lines(path)
         except (KeyError, OSError) as error:
             self._set_editor_status(f"Kaydetme hatası: {error}")
             return
@@ -512,14 +520,23 @@ class ArtistEditorScreen(ModalScreen[str]):
     def _reload_from_disk(self) -> None:
         try:
             config = load_config(self.config_path)
-            self._artist_paths = artist_file_paths(config.artists_dir)
-            self._artists = read_artist_lists(config.artists_dir)
+            artist_paths = artist_file_paths(config.artists_dir)
+            artists = read_artist_lists(config.artists_dir)
+            source_lines = {
+                genre: read_artist_file_lines(path)
+                for genre, path in artist_paths.items()
+            }
         except (ConfigError, OSError) as error:
             self._artists = {}
             self._artist_paths = {}
+            self._artist_source_lines = {}
             self._set_editor_status(f"Yapılandırma hatası: {error}")
             self._render_category_table()
             return
+
+        self._artist_paths = artist_paths
+        self._artists = artists
+        self._artist_source_lines = source_lines
 
         self._dirty_genres.clear()
         self._editing_index = None
@@ -594,7 +611,6 @@ class ArtistEditorScreen(ModalScreen[str]):
             self._set_editor_status(f"Sanatçı zaten listede: {name}")
             return
         artists.append(name)
-        artists.sort(key=str.casefold)
         self._dirty_genres.add(self._selected_genre)
         self._editing_index = None
         self._playlist_input_mode = None
@@ -618,7 +634,6 @@ class ArtistEditorScreen(ModalScreen[str]):
             self._set_editor_status(f"Sanatçı zaten listede: {name}")
             return
         artists[index] = name
-        artists.sort(key=str.casefold)
         self._dirty_genres.add(self._selected_genre)
         self._editing_index = None
         self._playlist_input_mode = None

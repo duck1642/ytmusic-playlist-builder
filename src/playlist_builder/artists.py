@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -50,6 +50,11 @@ def read_artist_file(path: Path) -> list[str]:
         seen.add(key)
         artists.append(name)
     return artists
+
+
+def read_artist_file_lines(path: Path) -> list[str]:
+    with path.open("r", encoding="utf-8", newline="") as source:
+        return source.read().splitlines(keepends=True)
 
 
 def artist_file_paths(directory: Path) -> dict[str, Path]:
@@ -189,3 +194,70 @@ def write_artist_file(path: Path, artists: Iterable[str]) -> None:
     if content:
         content += "\n"
     path.write_text(content, encoding="utf-8")
+
+
+def write_artist_file_preserving_layout(
+    path: Path, source_lines: Sequence[str], artists: Iterable[str]
+) -> None:
+    """Write edited artists while preserving comments, blanks, order, and line endings."""
+
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for value in artists:
+        name = value.strip()
+        if not name or name.startswith("#"):
+            continue
+        key = _artist_key(name)
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(name)
+
+    lines = list(source_lines)
+    line_ending = next(
+        (
+            "\r\n"
+            if line.endswith("\r\n")
+            else line[-1]
+            for line in lines
+            if line.endswith("\r\n") or line.endswith(("\n", "\r"))
+        ),
+        "\n",
+    )
+    artist_index = 0
+    updated_lines: list[str] = []
+    for line in lines:
+        content = line.rstrip("\r\n")
+        if not content.strip() or content.lstrip().startswith("#"):
+            updated_lines.append(line)
+            continue
+        if artist_index >= len(cleaned):
+            continue
+        name = cleaned[artist_index]
+        artist_index += 1
+        if name == content.strip():
+            updated_lines.append(line)
+            continue
+        if line.endswith("\r\n"):
+            ending = "\r\n"
+        elif line.endswith(("\n", "\r")):
+            ending = line[-1]
+        else:
+            ending = ""
+        updated_lines.append(name + ending)
+
+    if artist_index < len(cleaned):
+        if updated_lines and not updated_lines[-1].endswith(("\r", "\n")):
+            updated_lines[-1] += line_ending
+        updated_lines.extend(
+            name + line_ending for name in cleaned[artist_index:]
+        )
+
+    temporary_path = path.with_name(f".{path.name}.tmp")
+    try:
+        with temporary_path.open("w", encoding="utf-8", newline="") as target:
+            target.write("".join(updated_lines))
+        temporary_path.replace(path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()

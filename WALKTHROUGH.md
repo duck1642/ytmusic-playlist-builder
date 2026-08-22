@@ -816,3 +816,31 @@ YouTube Music playlist güncellemesi artık yalnızca `STATUS_SUCCEEDED` respons
 
 - Verification: `tests/test_ytmusic.py tests/test_playlists.py` → `21 passed`.
 - Sürüm `0.0.26` olarak hizalandı.
+
+### 2026-08-22T10:41+03:00
+
+#### Task
+
+Önceki kalite incelemesindeki TUI artist kaydının format kaybı ve atomic olmayan yazma bulgusunu düzeltmek.
+
+#### Summary
+
+TUI artık artist dosyasını normalize edip yeniden kurmak yerine diskten okuduğu ham satır düzenini temel alarak kaydediyor. Yorumlar, boş satırlar, mevcut artist sırası ve satır sonları korunuyor; eklenen artistler dosyanın sonuna ekleniyor. Kaydetme geçici dosyaya yazıp `replace` yaptığı için dosya değişimi atomic.
+
+#### Affected Files
+
+- `src/playlist_builder/artists.py`
+- `src/playlist_builder/tui.py`
+- `tests/test_artists.py`
+- `tests/test_tui.py`
+
+#### Decisions
+
+- Normalleştiren `write_artist_file` helper'ı diğer çağrılar için korundu; yalnızca TUI format-koruyan helper'a geçirildi.
+- TUI ekleme ve düzenleme sırasında alfabetik sort kaldırıldı; kullanıcı dosyasındaki artist sırası kaybolmuyor.
+- Duplicate artistler TUI modelinin mevcut case-insensitive dedupe davranışıyla korunmuyor; duplicate doğrulama ayrı akışın sorumluluğunda bırakıldı.
+
+#### Notes
+
+- Verification: `tests/test_artists.py tests/test_tui.py` → `24 passed`.
+- Sürüm `0.0.27` olarak hizalandı.

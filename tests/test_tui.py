@@ -228,11 +228,38 @@ def test_artist_editor_can_edit_and_delete_before_saving(tmp_path: Path) -> None
             assert read_artist_file(artist_file) == ["Radiohead"]
             screen.query_one("#artist-input", Input).value = "Deftones"
             await pilot.click("#artist-add")
-            artist_table.move_cursor(row=0, column=0, animate=False)
+            artist_table.move_cursor(row=1, column=0, animate=False)
             await pilot.click("#artist-delete")
             await pilot.click("#artist-save")
 
             assert read_artist_file(artist_file) == ["The Smile"]
+            await pilot.click("#artist-close")
+
+    asyncio.run(scenario())
+
+
+def test_artist_editor_save_preserves_file_layout(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    artist_file = tmp_path / "artists" / "rock.txt"
+    artist_file.write_bytes(b"# keep\r\nRadiohead\r\n\r\nDeftones\r\n")
+    app = PlaylistBuilderApp(config_path, run_fn=lambda *_args, **_kwargs: 0)
+
+    async def scenario() -> None:
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.click("#artists")
+            await pilot.pause()
+            screen = app.screen
+            screen.query_one("#artist-list", DataTable).move_cursor(
+                row=0, column=0, animate=False
+            )
+            await pilot.click("#artist-edit")
+            screen.query_one("#artist-input", Input).value = "The Smile"
+            await pilot.press("enter")
+            await pilot.click("#artist-save")
+
+            assert artist_file.read_bytes() == (
+                b"# keep\r\nThe Smile\r\n\r\nDeftones\r\n"
+            )
             await pilot.click("#artist-close")
 
     asyncio.run(scenario())

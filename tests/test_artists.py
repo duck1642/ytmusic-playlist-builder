@@ -6,11 +6,13 @@ from playlist_builder.artists import (
     create_playlist_file,
     delete_playlist_file,
     read_artist_file,
+    read_artist_file_lines,
     read_artist_entries,
     read_artist_lists,
     rename_playlist_file,
     validate_playlist_name,
     write_artist_file,
+    write_artist_file_preserving_layout,
 )
 
 
@@ -69,6 +71,39 @@ def test_apply_artist_line_changes_preserves_untouched_text(tmp_path: Path) -> N
     apply_artist_line_changes(artist_file, {3: None})
 
     assert artist_file.read_bytes() == b"# keep\r\nRadiohead\r\nDeftones\r\n"
+
+
+def test_write_artist_file_preserving_layout_keeps_comments_blanks_order_and_line_endings(
+    tmp_path: Path,
+) -> None:
+    artist_file = tmp_path / "rock.txt"
+    artist_file.write_bytes(b"# keep\r\nRadiohead\r\n\r\nDeftones\r\n")
+
+    write_artist_file_preserving_layout(
+        artist_file,
+        read_artist_file_lines(artist_file),
+        ["The Smile", "Deftones", "Gojira"],
+    )
+
+    assert artist_file.read_bytes() == (
+        b"# keep\r\nThe Smile\r\n\r\nDeftones\r\nGojira\r\n"
+    )
+    assert not artist_file.with_name(".rock.txt.tmp").exists()
+
+
+def test_write_artist_file_preserving_layout_removes_only_artist_lines(
+    tmp_path: Path,
+) -> None:
+    artist_file = tmp_path / "rock.txt"
+    artist_file.write_bytes(b"# keep\r\nRadiohead\r\n\r\nDeftones\r\n")
+
+    write_artist_file_preserving_layout(
+        artist_file,
+        read_artist_file_lines(artist_file),
+        ["Deftones"],
+    )
+
+    assert artist_file.read_bytes() == b"# keep\r\nDeftones\r\n\r\n"
 
 
 def test_playlist_file_lifecycle_uses_the_user_defined_name(tmp_path: Path) -> None:
