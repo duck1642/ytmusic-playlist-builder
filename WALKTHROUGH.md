@@ -844,3 +844,30 @@ TUI artık artist dosyasını normalize edip yeniden kurmak yerine diskten okudu
 
 - Verification: `tests/test_artists.py tests/test_tui.py` → `24 passed`.
 - Sürüm `0.0.27` olarak hizalandı.
+
+### 2026-08-22T10:43+03:00
+
+#### Task
+
+Önceki kalite incelemesindeki silinmiş veya stale playlist ID'sinin build'i durdurması bulgusunu düzeltmek.
+
+#### Summary
+
+PlaylistWriter artık state dosyasındaki playlist ID'sini doğrudan kullanmıyor; her sync öncesi playlist adını güncel playlist listesinden çözüyor. State'teki ID silinmişse ad bulunamaz, yeni playlist normal create akışıyla oluşturulur ve yeni ID kaydedilir. Playlist listesi alınamazsa hata yukarı taşınır; bu durumda yeni playlist açılmaz ve state değişmez.
+
+#### Affected Files
+
+- `src/playlist_builder/playlists.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_playlists.py`
+
+#### Decisions
+
+- Playlist adı authoritative kimlik olarak korunuyor; state ID'si cache/reporting uyumluluğu için tutuluyor.
+- Lookup sonucu doğrulanmadan state'e yazılmıyor.
+- İsimle bulunamayan playlist'in yeniden oluşturulması ile geçici ağ/listing hatası birbirinden ayrıldı.
+
+#### Notes
+
+- Verification: `tests/test_playlists.py` → `6 passed`.
+- Sürüm `0.0.28` olarak hizalandı.

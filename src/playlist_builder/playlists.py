@@ -79,15 +79,14 @@ class PlaylistWriter:
         desired_ids = _unique(track.video_id for track in tracks)
         previous_generated = _unique(state.generated_video_ids.get(title, []))
         removed_ids = _unique(state.removed_video_ids.get(title, []))
-        playlist_id = state.playlist_ids.get(title)
+        playlist_id = self._find_playlist_id(title)
         created = False
 
-        if playlist_id is None:
-            playlist_id = self._find_playlist_id(title)
-        if playlist_id is not None and not dry_run:
-            state.playlist_ids[title] = playlist_id
         current_ids = self.api.get_playlist_video_ids(playlist_id) if playlist_id else []
         current_set = set(current_ids)
+
+        if playlist_id is not None and not dry_run:
+            state.playlist_ids[title] = playlist_id
 
         manually_removed = [
             video_id for video_id in previous_generated if video_id not in current_set

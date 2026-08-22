@@ -1,7 +1,8 @@
+import pytest
+
 from playlist_builder.models import Track
 from playlist_builder.playlists import PlaylistWriter
 from playlist_builder.state import BuildState
-import pytest
 
 
 def track(video_id: str) -> Track:
@@ -14,8 +15,10 @@ class FakePlaylistApi:
         self.tracks = tracks
         self.created: list[tuple[str, str, str, list[str]]] = []
         self.added: list[tuple[str, list[str]]] = []
+        self.playlist_lookups: list[str] = []
 
     def list_playlists(self) -> list[dict[str, object]]:
+        self.playlist_lookups.append("list")
         return list(self.playlists)
 
     def get_playlist_video_ids(self, playlist_id: str) -> list[str]:
@@ -105,4 +108,39 @@ def test_failed_playlist_update_does_not_poison_state() -> None:
     with pytest.raises(RuntimeError, match="playlist update failed"):
         PlaylistWriter(api).sync_genre("rock", [[track("kept"), track("new")]], state)
 
+    assert state.to_dict() == before
+
+
+def test_deleted_playlist_id_is_recovered_from_current_title_lookup() -> None:
+    api = FakePlaylistApi([], {})
+    state = BuildState(
+        playlist_ids={"rock": "deleted-id"},
+        generated_video_ids={"rock": ["old"]},
+    )
+
+    reports = PlaylistWriter(api).sync_genre("rock", [[track("new")]], state)
+
+    assert reports[0].created is True
+    assert api.playlist_lookups == ["list"]
+    assert api.created == [("rock", "RAW playlist for rock", "PRIVATE", ["new"])]
+    assert state.playlist_ids == {"rock": "new-1"}
+
+
+class FailingPlaylistLookupApi(FakePlaylistApi):
+    def list_playlists(self) -> list[dict[str, object]]:
+        raise RuntimeError("playlist lookup failed")
+
+
+def test_playlist_lookup_failure_does_not_create_or_mutate_state() -> None:
+    api = FailingPlaylistLookupApi([], {})
+    state = BuildState(
+        playlist_ids={"rock": "possibly-valid-id"},
+        generated_video_ids={"rock": ["old"]},
+    )
+    before = state.to_dict()
+
+    with pytest.raises(RuntimeError, match="playlist lookup failed"):
+        PlaylistWriter(api).sync_genre("rock", [[track("new")]], state)
+
+    assert api.created == []
     assert state.to_dict() == before
