@@ -124,6 +124,58 @@ def test_deleted_playlist_id_is_recovered_from_current_title_lookup() -> None:
     assert api.playlist_lookups == ["list"]
     assert api.created == [("rock", "RAW playlist for rock", "PRIVATE", ["new"])]
     assert state.playlist_ids == {"rock": "new-1"}
+    assert state.removed_video_ids == {"rock": []}
+    assert state.generated_video_ids == {"rock": ["new"]}
+
+
+def test_recreated_playlist_does_not_mark_previous_tracks_as_removed() -> None:
+    api = FakePlaylistApi([], {})
+    state = BuildState(
+        playlist_ids={"rock": "deleted-id"},
+        generated_video_ids={"rock": ["old"]},
+    )
+
+    report = PlaylistWriter(api).sync_playlist(
+        "rock", [track("new")], state, privacy="PRIVATE"
+    )
+
+    assert report.manually_removed_video_ids == ()
+    assert state.removed_video_ids == {"rock": []}
+    assert state.generated_video_ids == {"rock": ["new"]}
+
+
+def test_saved_playlist_id_is_preferred_over_duplicate_title_match() -> None:
+    api = FakePlaylistApi(
+        [
+            {"playlistId": "PL-WRONG", "title": "rock"},
+            {"playlistId": "PL-MANAGED", "title": "rock"},
+        ],
+        {"PL-WRONG": ["wrong"], "PL-MANAGED": ["kept"]},
+    )
+    state = BuildState(
+        playlist_ids={"rock": "PL-MANAGED"},
+        generated_video_ids={"rock": ["kept"]},
+    )
+
+    PlaylistWriter(api).sync_playlist(
+        "rock", [track("kept"), track("new")], state, privacy="PRIVATE"
+    )
+
+    assert api.added == [("PL-MANAGED", ["new"])]
+    assert state.playlist_ids == {"rock": "PL-MANAGED"}
+
+
+def test_ambiguous_playlist_title_is_rejected_without_valid_saved_id() -> None:
+    api = FakePlaylistApi(
+        [
+            {"playlistId": "PL-ONE", "title": "rock"},
+            {"playlistId": "PL-TWO", "title": "rock"},
+        ],
+        {"PL-ONE": [], "PL-TWO": []},
+    )
+
+    with pytest.raises(ValueError, match="Multiple playlists found"):
+        PlaylistWriter(api).sync_playlist("rock", [track("new")], BuildState(), privacy="PRIVATE")
 
 
 class FailingPlaylistLookupApi(FakePlaylistApi):

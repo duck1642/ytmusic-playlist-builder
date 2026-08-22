@@ -79,8 +79,9 @@ class PlaylistWriter:
         desired_ids = _unique(track.video_id for track in tracks)
         previous_generated = _unique(state.generated_video_ids.get(title, []))
         removed_ids = _unique(state.removed_video_ids.get(title, []))
-        playlist_id = self._find_playlist_id(title)
+        playlist_id = self._find_playlist_id(title, state)
         created = False
+        playlist_exists = playlist_id is not None
 
         current_ids = self.api.get_playlist_video_ids(playlist_id) if playlist_id else []
         current_set = set(current_ids)
@@ -88,12 +89,23 @@ class PlaylistWriter:
         if playlist_id is not None and not dry_run:
             state.playlist_ids[title] = playlist_id
 
-        manually_removed = [
-            video_id for video_id in previous_generated if video_id not in current_set
-        ]
+        manually_removed = (
+            [
+                video_id
+                for video_id in previous_generated
+                if video_id not in current_set
+            ]
+            if playlist_exists
+            else []
+        )
         removed_ids = _unique([*removed_ids, *manually_removed])
-        eligible_ids = [video_id for video_id in desired_ids if video_id not in set(removed_ids)]
-        skipped_ids = [video_id for video_id in desired_ids if video_id in current_set or video_id in set(removed_ids)]
+        removed_set = set(removed_ids)
+        eligible_ids = [video_id for video_id in desired_ids if video_id not in removed_set]
+        skipped_ids = [
+            video_id
+            for video_id in desired_ids
+            if video_id in current_set or video_id in removed_set
+        ]
         added_ids = [video_id for video_id in eligible_ids if video_id not in current_set]
 
         if playlist_id is None:
@@ -114,8 +126,8 @@ class PlaylistWriter:
             generated_ids = [
                 video_id
                 for video_id in _unique(generated_candidates)
-                if video_id not in set(removed_ids)
-                and (video_id in current_set or video_id in added_ids or created)
+                if video_id not in removed_set
+                and (video_id in current_set or video_id in added_ids)
             ]
             state.generated_video_ids[title] = generated_ids
             state.removed_video_ids[title] = removed_ids
@@ -129,11 +141,23 @@ class PlaylistWriter:
             manually_removed_video_ids=tuple(manually_removed),
         )
 
-    def _find_playlist_id(self, title: str) -> str | None:
+    def _find_playlist_id(self, title: str, state: BuildState) -> str | None:
+        candidates: list[tuple[str, Any]] = []
         for playlist in self.api.list_playlists():
-            if playlist.get("title") != title:
-                continue
             playlist_id = playlist.get("playlistId") or playlist.get("id")
             if isinstance(playlist_id, str) and playlist_id:
-                return playlist_id
-        return None
+                candidates.append((playlist_id, playlist.get("title")))
+
+        preferred_id = state.playlist_ids.get(title)
+        if preferred_id and any(playlist_id == preferred_id for playlist_id, _ in candidates):
+            return preferred_id
+
+        matching_ids = [
+            playlist_id
+            for playlist_id, playlist_title_value in candidates
+            if playlist_title_value == title
+        ]
+        if len(matching_ids) > 1:
+            ids = ", ".join(matching_ids)
+            raise ValueError(f"Multiple playlists found with title {title!r}: {ids}")
+        return matching_ids[0] if matching_ids else None

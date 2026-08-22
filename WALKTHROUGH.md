@@ -871,3 +871,30 @@ PlaylistWriter artık state dosyasındaki playlist ID'sini doğrudan kullanmıyo
 
 - Verification: `tests/test_playlists.py` → `6 passed`.
 - Sürüm `0.0.28` olarak hizalandı.
+
+### 2026-08-22T12:02+03:00
+
+#### Task
+
+Hakem incelemesindeki playlist identity ve stale/recreated playlist recovery bulgularını düzeltmek.
+
+#### Summary
+
+PlaylistWriter artık state'te kayıtlı ve güncel playlist ID'sini aynı başlıklı playlistler arasında önceliklendiriyor. State ID'si güncel değilse tek başlıklı eşleşmeye düşüyor; birden fazla aynı başlık varsa yanlış playlist seçmek yerine işlemi açık bir hata ile durduruyor. Uzak playlist silinmişse eski `generated_video_ids` kayıtları otomatik olarak manuel silinmiş sayılmıyor; yeni playlistte gerçekten bulunan veya o çalışmada eklenen parçalar state'e yazılıyor.
+
+#### Affected Files
+
+- `src/playlist_builder/playlists.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_playlists.py`
+
+#### Decisions
+
+- Mevcut ve kayıtlı playlist ID'si, aynı başlıktaki ilk eşleşmeden daha güvenilir kimlik kabul edildi.
+- Stale ID + birden fazla aynı başlık kombinasyonunda sessiz seçim yapılmayacak.
+- Recreated playlist recovery, önceki state kayıtlarını manuel silme kanıtı olarak kullanmayacak.
+
+#### Notes
+
+- Verification: `tests/test_playlists.py` → `9 passed`.
+- Sürüm `0.0.29` olarak hizalandı.
