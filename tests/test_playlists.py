@@ -1,7 +1,7 @@
 import pytest
 
 from playlist_builder.models import Track
-from playlist_builder.playlists import PlaylistWriter
+from playlist_builder.playlists import PlaylistIdentityError, PlaylistWriter
 from playlist_builder.state import BuildState
 
 
@@ -195,7 +195,7 @@ def test_ambiguous_playlist_title_is_rejected_without_valid_saved_id() -> None:
         {"PL-ONE": [], "PL-TWO": []},
     )
 
-    with pytest.raises(ValueError, match="Multiple playlists found"):
+    with pytest.raises(PlaylistIdentityError, match="Multiple playlists found"):
         PlaylistWriter(api).sync_playlist("rock", [track("new")], BuildState(), privacy="PRIVATE")
 
 

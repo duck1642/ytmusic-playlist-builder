@@ -7,6 +7,10 @@ from .models import Track
 from .state import BuildState
 
 
+class PlaylistIdentityError(RuntimeError):
+    """Raised when a playlist title maps to more than one remote identity."""
+
+
 @dataclass(frozen=True, slots=True)
 class PlaylistReport:
     title: str
@@ -162,5 +166,7 @@ class PlaylistWriter:
         ]
         if len(matching_ids) > 1:
             ids = ", ".join(matching_ids)
-            raise ValueError(f"Multiple playlists found with title {title!r}: {ids}")
+            raise PlaylistIdentityError(
+                f"Multiple playlists found with title {title!r}: {ids}"
+            )
         return matching_ids[0] if matching_ids else None

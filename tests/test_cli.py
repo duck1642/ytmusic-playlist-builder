@@ -2,7 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from playlist_builder.cli import build_parser, run, validate_format, validate_remote
+from playlist_builder.cli import (
+    build_parser,
+    main,
+    run,
+    validate_format,
+    validate_remote,
+)
+from playlist_builder.playlists import PlaylistIdentityError
 from playlist_builder.state import BuildState, load_state, save_state
 from playlist_builder.ytmusic import ArtistInput, ArtistReference, parse_artist_input
 
@@ -94,6 +101,27 @@ def test_parser_exposes_two_validation_modes_without_old_alias() -> None:
     assert remote_args.validate_remote is True
     with pytest.raises(SystemExit):
         build_parser().parse_args(["--validate"])
+
+
+def test_main_reports_playlist_identity_error_without_traceback(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    def fail_run(*_args, **_kwargs) -> int:
+        raise PlaylistIdentityError(
+            "Multiple playlists found with title 'rock': PL-ONE, PL-TWO"
+        )
+
+    monkeypatch.setattr("playlist_builder.cli.run", fail_run)
+
+    assert main(["--config", str(tmp_path / "config.yaml")]) == 2
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "Error: Multiple playlists found with title 'rock': PL-ONE, PL-TWO\n"
+    )
 
 
 class FakeRemoteApi:

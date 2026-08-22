@@ -12,7 +12,7 @@ from .artists import read_artist_entry_lists
 from .catalog import CatalogCollector
 from .config import ConfigError, load_config
 from .events import append_event
-from .playlists import PlaylistReport, PlaylistWriter
+from .playlists import PlaylistIdentityError, PlaylistReport, PlaylistWriter
 from .processing import prepare_tracks
 from .state import (
     ArtistAlias,
@@ -384,6 +384,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             return run_tui(args.config)
         return run(args.config, dry_run=args.dry_run)
-    except (AuthError, ConfigError, StateError, YtMusicError, OSError) as error:
+    except (
+        AuthError,
+        ConfigError,
+        PlaylistIdentityError,
+        StateError,
+        YtMusicError,
+        OSError,
+    ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2

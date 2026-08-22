@@ -1003,3 +1003,32 @@ Handle girdileri artık yalnızca arama sonucunda açık handle metadata'sı (`h
 
 - Verification: `tests/test_ytmusic.py` → `21 passed`.
 - Sürüm `0.0.33` olarak hizalandı.
+
+### 2026-08-22T12:39+03:00
+
+#### Task
+
+Leibniz incelemesindeki duplicate playlist başlığında plain `ValueError` nedeniyle CLI'nin traceback üretmesi bulgusunu düzeltmek.
+
+#### Summary
+
+Playlist başlığı birden fazla uzak playlist ile eşleştiğinde `PlaylistIdentityError` isimli domain hatası yükseltiliyor. CLI ana hata sınırı bu hatayı yakalayıp kontrollü `Error: ...` çıktısı ve hata kodu döndürüyor. TUI build worker'ı mevcut genel hata sınırıyla aynı mesajı arayüze yazmaya devam ediyor.
+
+#### Affected Files
+
+- `src/playlist_builder/playlists.py`
+- `src/playlist_builder/cli.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_playlists.py`
+- `tests/test_cli.py`
+
+#### Decisions
+
+- Playlist kimliği belirsizliği için ayrı domain exception kullanıldı; genel `ValueError` ile sessizce karışmıyor.
+- CLI davranışı traceback yerine tek satırlık hata ve `2` dönüş kodu olarak sabitlendi.
+- TUI tarafında ek özel yakalama gerekmedi; build worker zaten operasyon hatalarını UI loguna aktaran kontrollü sınırı kullanıyor.
+
+#### Notes
+
+- Verification: playlist unit testi ve CLI boundary testi eklendi; tam paket doğrulaması sonraki adımda yapılacak.
+- Sürüm `0.0.34` olarak hizalandı.
