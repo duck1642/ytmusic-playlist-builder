@@ -97,9 +97,6 @@ class PlaylistWriter:
         current_ids = self.api.get_playlist_video_ids(playlist_id) if playlist_id else []
         current_set = set(current_ids)
 
-        if playlist_id is not None and not dry_run:
-            state.playlist_ids[title] = playlist_id
-
         manually_removed = (
             [
                 video_id
@@ -133,6 +130,9 @@ class PlaylistWriter:
             self.api.add_playlist_items(playlist_id, added_ids)
 
         if not dry_run:
+            if playlist_id is None:
+                raise RuntimeError("Playlist operation completed without an ID")
+            state.playlist_ids[title] = playlist_id
             generated_candidates = [*previous_generated, *desired_ids]
             generated_ids = [
                 video_id

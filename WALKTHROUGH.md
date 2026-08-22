@@ -1089,3 +1089,30 @@ Hakem incelemesinde bulunan, eski playlist ID'si yeni bir aynı başlıklı play
 - Aynı başlıklı yeni ID için regression testi eklendi.
 - Hedefli playlist testleri: `11 passed`.
 - Sürüm `0.0.36` olarak hizalandı.
+
+### 2026-08-22T13:40+03:00
+
+#### Task
+
+Yeni aynı başlıklı playlist’e geçiş sırasında remote update başarısız olursa playlist kimliği ile eski track geçmişinin state içinde yanlış eşleşmesini düzeltmek.
+
+#### Summary
+
+`PlaylistWriter.sync_playlist()` artık seçilen playlist ID'sini yalnızca create/add remote işlemi başarılı olduktan sonra state'e yazıyor. Böylece replacement playlist update'i hata verirse state tamamen önceki kimlik ve geçmişle kalıyor; sonraki çalıştırma identity reset'i tekrar uygulayabiliyor.
+
+#### Affected Files
+
+- `src/playlist_builder/playlists.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_playlists.py`
+
+#### Decisions
+
+- Remote işlem başarısız olduğunda state'e kısmi başarı yazılmıyor.
+- Yeni playlist ID'si, generated ve removed geçmişiyle birlikte tek final state adımında kaydediliyor.
+- Replacement update failure → retry akışı için fail-once regression testi eklendi.
+
+#### Notes
+
+- Hedefli playlist testleri: `12 passed`.
+- Sürüm `0.0.37` olarak hizalandı.

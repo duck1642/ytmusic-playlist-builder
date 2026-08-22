@@ -94,6 +94,20 @@ class FailingAddPlaylistApi(FakePlaylistApi):
         raise RuntimeError("playlist update failed")
 
 
+class FailOnceReplacementPlaylistApi(FakePlaylistApi):
+    def __init__(
+        self, playlists: list[dict[str, object]], tracks: dict[str, list[str]]
+    ) -> None:
+        super().__init__(playlists, tracks)
+        self.fail_next_add = True
+
+    def add_playlist_items(self, playlist_id: str, video_ids: list[str]) -> object:
+        if self.fail_next_add:
+            self.fail_next_add = False
+            raise RuntimeError("playlist replacement update failed")
+        return super().add_playlist_items(playlist_id, video_ids)
+
+
 def test_failed_playlist_update_does_not_poison_state() -> None:
     api = FailingAddPlaylistApi(
         [{"playlistId": "PL-ROCK", "title": "rock"}],
@@ -109,6 +123,36 @@ def test_failed_playlist_update_does_not_poison_state() -> None:
         PlaylistWriter(api).sync_genre("rock", [[track("kept"), track("new")]], state)
 
     assert state.to_dict() == before
+
+
+def test_failed_replacement_update_preserves_identity_history_for_retry() -> None:
+    api = FailOnceReplacementPlaylistApi(
+        [{"playlistId": "PL-NEW", "title": "rock"}],
+        {"PL-NEW": []},
+    )
+    state = BuildState(
+        playlist_ids={"rock": "PL-OLD"},
+        generated_video_ids={"rock": ["old", "missing"]},
+        removed_video_ids={"rock": ["removed"]},
+    )
+    before = state.to_dict()
+
+    with pytest.raises(RuntimeError, match="playlist replacement update failed"):
+        PlaylistWriter(api).sync_playlist(
+            "rock", [track("old"), track("new")], state, privacy="PRIVATE"
+        )
+
+    assert state.to_dict() == before
+
+    report = PlaylistWriter(api).sync_playlist(
+        "rock", [track("old"), track("new")], state, privacy="PRIVATE"
+    )
+
+    assert report.added_video_ids == ("old", "new")
+    assert report.manually_removed_video_ids == ()
+    assert state.playlist_ids == {"rock": "PL-NEW"}
+    assert state.removed_video_ids == {"rock": []}
+    assert state.generated_video_ids == {"rock": ["old", "new"]}
 
 
 def test_deleted_playlist_id_is_recovered_from_current_title_lookup() -> None:
