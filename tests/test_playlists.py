@@ -165,6 +165,27 @@ def test_saved_playlist_id_is_preferred_over_duplicate_title_match() -> None:
     assert state.playlist_ids == {"rock": "PL-MANAGED"}
 
 
+def test_saved_playlist_id_is_ignored_when_remote_title_changed() -> None:
+    api = FakePlaylistApi(
+        [
+            {"playlistId": "PL-SAVED", "title": "renamed rock"},
+            {"playlistId": "PL-ROCK", "title": "rock"},
+        ],
+        {"PL-SAVED": ["wrong"], "PL-ROCK": ["kept"]},
+    )
+    state = BuildState(
+        playlist_ids={"rock": "PL-SAVED"},
+        generated_video_ids={"rock": ["kept"]},
+    )
+
+    PlaylistWriter(api).sync_playlist(
+        "rock", [track("kept"), track("new")], state, privacy="PRIVATE"
+    )
+
+    assert api.added == [("PL-ROCK", ["new"])]
+    assert state.playlist_ids == {"rock": "PL-ROCK"}
+
+
 def test_ambiguous_playlist_title_is_rejected_without_valid_saved_id() -> None:
     api = FakePlaylistApi(
         [

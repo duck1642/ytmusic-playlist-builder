@@ -149,7 +149,10 @@ class PlaylistWriter:
                 candidates.append((playlist_id, playlist.get("title")))
 
         preferred_id = state.playlist_ids.get(title)
-        if preferred_id and any(playlist_id == preferred_id for playlist_id, _ in candidates):
+        if preferred_id and any(
+            playlist_id == preferred_id and playlist_title_value == title
+            for playlist_id, playlist_title_value in candidates
+        ):
             return preferred_id
 
         matching_ids = [

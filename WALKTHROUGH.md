@@ -951,3 +951,29 @@ Artist alias freshness kontrolü artık gelecekteki `resolved_at` değerlerini g
 
 - Verification: `tests/test_state.py tests/test_playlists.py` → `17 passed`.
 - Sürüm `0.0.31` olarak hizalandı.
+
+### 2026-08-22T12:34+03:00
+
+#### Task
+
+Leibniz incelemesindeki kayıtlı playlist ID'sinin uzak başlıkla doğrulanmaması bulgusunu düzeltmek.
+
+#### Summary
+
+PlaylistWriter artık state'teki kayıtlı ID'yi yalnızca güncel playlist listesindeki başlığı istenen playlist başlığıyla aynıysa tercih ediyor. Kullanıcı uzak playlistin adını değiştirmişse ID geçersiz kabul ediliyor; sistem doğru başlıklı tek eşleşmeye düşüyor veya normal oluşturma/ambiguous akışını kullanıyor.
+
+#### Affected Files
+
+- `src/playlist_builder/playlists.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_playlists.py`
+
+#### Decisions
+
+- State'teki ID tek başına kimlik kanıtı değil; ID + uzak başlık eşleşmesi birlikte aranıyor.
+- Başlığı değişmiş kayıtlı playlist, başka bir başlık eşleşmesinin önüne geçirilmiyor.
+
+#### Notes
+
+- Verification: `tests/test_playlists.py` → `10 passed`.
+- Sürüm `0.0.32` olarak hizalandı.
