@@ -39,13 +39,17 @@ class BuildState:
     def to_dict(self) -> dict[str, Any]:
         return {
             "state_version": STATE_VERSION,
-            "artist_ids": self.artist_ids,
+            "artist_ids": dict(self.artist_ids),
             "artist_aliases": {
                 key: alias.to_dict() for key, alias in self.artist_aliases.items()
             },
-            "playlist_ids": self.playlist_ids,
-            "generated_video_ids": self.generated_video_ids,
-            "removed_video_ids": self.removed_video_ids,
+            "playlist_ids": dict(self.playlist_ids),
+            "generated_video_ids": {
+                key: list(values) for key, values in self.generated_video_ids.items()
+            },
+            "removed_video_ids": {
+                key: list(values) for key, values in self.removed_video_ids.items()
+            },
         }
 
 
@@ -110,7 +114,8 @@ def artist_alias_is_fresh(
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
-    return current - resolved_at <= timedelta(days=max_age_days)
+    age = current - resolved_at
+    return timedelta(0) <= age <= timedelta(days=max_age_days)
 
 
 def load_state(path: Path) -> BuildState:

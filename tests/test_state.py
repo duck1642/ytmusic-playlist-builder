@@ -70,6 +70,37 @@ def test_artist_alias_freshness_respects_ttl() -> None:
     assert not artist_alias_is_fresh(alias, 0, now=now)
 
 
+def test_artist_alias_freshness_rejects_future_timestamp() -> None:
+    now = datetime(2026, 8, 22, tzinfo=timezone.utc)
+    alias = ArtistAlias(
+        channel_id="UC-RADIOHEAD",
+        display_name="Radiohead",
+        resolved_at=(now + timedelta(seconds=1)).isoformat(),
+    )
+
+    assert not artist_alias_is_fresh(alias, 30, now=now)
+
+
+def test_state_to_dict_returns_independent_collections() -> None:
+    state = BuildState(
+        artist_ids={"Radiohead": "UC-RADIOHEAD"},
+        playlist_ids={"rock": "PL-ROCK"},
+        generated_video_ids={"rock": ["song-1"]},
+        removed_video_ids={"rock": ["song-2"]},
+    )
+
+    snapshot = state.to_dict()
+    snapshot["artist_ids"]["Gojira"] = "UC-GOJIRA"
+    snapshot["playlist_ids"]["rock"] = "PL-OTHER"
+    snapshot["generated_video_ids"]["rock"].append("song-3")
+    snapshot["removed_video_ids"]["rock"].clear()
+
+    assert state.artist_ids == {"Radiohead": "UC-RADIOHEAD"}
+    assert state.playlist_ids == {"rock": "PL-ROCK"}
+    assert state.generated_video_ids == {"rock": ["song-1"]}
+    assert state.removed_video_ids == {"rock": ["song-2"]}
+
+
 def test_invalid_state_raises_state_error(tmp_path: Path) -> None:
     state_file = tmp_path / "state.json"
     state_file.write_text("[]", encoding="utf-8")

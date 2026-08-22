@@ -925,3 +925,29 @@ Hakem incelemesindeki handle URL çözümlemesinin display-name bağımlılığ�
 
 - Verification: `tests/test_ytmusic.py` → `21 passed`.
 - Sürüm `0.0.30` olarak hizalandı.
+
+### 2026-08-22T12:06+03:00
+
+#### Task
+
+Hakem incelemesindeki gelecek timestamp TTL ve shallow state snapshot bulgularını düzeltmek.
+
+#### Summary
+
+Artist alias freshness kontrolü artık gelecekteki `resolved_at` değerlerini geçerli kabul etmiyor; yaş değeri sıfır ile TTL arasında olmalı. `BuildState.to_dict()` artık mapping ve video ID listelerinin bağımsız kopyalarını döndürüyor; snapshot üzerinde yapılan değişiklikler bellekteki state'i değiştirmiyor.
+
+#### Affected Files
+
+- `src/playlist_builder/state.py`
+- `src/playlist_builder/__init__.py`
+- `tests/test_state.py`
+
+#### Decisions
+
+- Saat farkı toleransı eklenmedi; gelecekteki timestamp state bütünlüğü açısından geçersiz sayılıyor.
+- Snapshot bağımsızlığı testte kopya almak yerine üretim API'sinin sözleşmesi olarak uygulandı.
+
+#### Notes
+
+- Verification: `tests/test_state.py tests/test_playlists.py` → `17 passed`.
+- Sürüm `0.0.31` olarak hizalandı.
