@@ -112,6 +112,8 @@ Start the interactive interface with:
 .\.venv\Scripts\python.exe build_playlists.py --tui
 ```
 
+![YouTube Music Playlist Builder terminal interface](docs/images/tui-main-screen.png)
+
 You can also double-click `run.bat` on Windows.
 
 Main shortcuts:
