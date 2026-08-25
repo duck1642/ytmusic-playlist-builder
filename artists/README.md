@@ -1,6 +1,14 @@
 # Local artist lists
 
-Create one `.txt` file per playlist in this directory. The filename becomes the playlist name.
+The CLI/TUI is the primary way to manage playlists and artist lists:
+
+```powershell
+.\.venv\Scripts\python.exe build_playlists.py --tui
+```
+
+The playlist editor can create, rename, edit, delete, and save playlist files. Direct `.txt` editing is also supported when you need to make manual changes.
+
+Each `.txt` file represents one playlist, and its filename becomes the playlist name.
 
 Example file contents:
 

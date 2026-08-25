@@ -54,7 +54,7 @@ Never commit or share files from `auth/`. The directory is excluded by `.gitigno
 
 ## Artist Files
 
-Artist lists are stored as local text files under `artists/`. These `.txt` files are intentionally ignored by Git so personal lists are not committed accidentally. See [`artists/README.md`](artists/README.md) for the local file format.
+The CLI/TUI is the primary interface for managing playlists and artist lists. The app stores its local inputs as text files under `artists/`, which can also be edited manually when needed. These `.txt` files are intentionally ignored by Git so personal lists are not committed accidentally. See [`artists/README.md`](artists/README.md) for details.
 
 Supported formats:
 
