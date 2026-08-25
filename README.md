@@ -1,31 +1,62 @@
 # YouTube Music Playlist Builder
 
-Sanatçı listelerinden düzenli RAW YouTube Music playlistleri oluşturmak için hazırlanmış kişisel otomasyon projesi.
+A personal automation tool that builds organized RAW YouTube Music playlists from artist lists.
 
-Akış:
+The builder collects album and single catalogs, removes duplicate entries, and creates playlists for manual cleanup in YouTube Music. It does not download music to a phone, automatically filter live/remix/remaster versions, or split playlists by track count.
+
+## Workflow
 
 ```text
-Sanatçıları ekle → Albüm/single kataloglarını al → Sırala ve duplicate ayıkla
-→ RAW playlist oluştur → YouTube Music'te manuel ele → Telefona indir
+Add artists
+  → Collect album and single catalogs
+  → Remove duplicates
+  → Build a RAW playlist
+  → Review and clean up in YouTube Music
+  → Download through the YouTube Music app
 ```
 
-İlk sürüm yalnızca playlist oluşturma ve organize etme işine odaklanır. Telefon indirmeleri YouTube Music uygulamasından yapılır.
-Her `.txt` dosyası tek bir playlist hedefler; playlistler parça sayısına göre otomatik olarak bölünmez.
-Build, sanatçıların tüm albüm ve single parçalarını toplar; `live`, `remix`, `remaster`, `deluxe` veya `karaoke` sürümleri otomatik filtrelenmez. Eleme YouTube Music'te manuel yapılır.
+Each `.txt` file in `artists/` represents one playlist target.
 
-## Kullanım
+## Requirements
 
-1. `requirements.txt` içindeki bağımlılıkları kurun.
-2. `config.example.yaml` dosyasını `config.yaml` olarak kopyalayın.
-3. TUI içindeki `Playlistleri düzenle` ekranından playlist oluşturun; her playlist için aynı adla bir `artists/<playlist adı>.txt` dosyası oluşturulur. Sanatçıları bu ekrandan da yönetebilirsiniz.
-4. Google Cloud'dan indirdiğiniz OAuth client JSON dosyasını `auth/client_secret.json` olarak kaydedin.
-5. OAuth tokenını oluşturun: `.venv\Scripts\python.exe build_playlists.py --setup-oauth`.
-6. Önce planı kontrol edin: `.venv\Scripts\python.exe build_playlists.py --dry-run`.
-7. Sanatçı dosyalarının formatını ve yerel duplicate'lerini ağ kullanmadan kontrol edin: `.venv\Scripts\python.exe build_playlists.py --validate-format`. Kesin duplicate satırları için uygulama planı gösterilir; dosya yalnızca onay verirseniz değişir.
-8. Sanatçıların YouTube Music'te gerçekten çözüldüğünü ve aynı channel ID'nin tekrarlanmadığını kontrol edin: `.venv\Scripts\python.exe build_playlists.py --validate-remote`. Bu komut OAuth/API kullanır ve TXT düzeltmelerinden önce ayrıca onay ister.
-9. Playlistleri oluşturun/güncelleyin: `.venv\Scripts\python.exe build_playlists.py`.
+- Python 3.13 or newer
+- A Google OAuth desktop client
+- A YouTube Music account
+- Windows PowerShell for the documented commands
 
-Sanatçı dosyalarında düz isim, YouTube kanal URL'si veya ikisi birlikte kullanılabilir:
+## Installation
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item config.example.yaml config.yaml
+```
+
+Create a Google OAuth desktop client and save the downloaded JSON file as:
+
+```text
+auth/client_secret.json
+```
+
+Then create the local OAuth token:
+
+```powershell
+.\.venv\Scripts\python.exe build_playlists.py --setup-oauth
+```
+
+The token is stored locally at:
+
+```text
+auth/oauth.json
+```
+
+Never commit or share files from `auth/`. The directory is excluded by `.gitignore`.
+
+## Artist Files
+
+Artist lists are stored as text files under `artists/`.
+
+Supported formats:
 
 ```text
 Radiohead
@@ -33,24 +64,117 @@ https://music.youtube.com/@radiohead
 Radiohead | https://music.youtube.com/channel/UCq19-LqvG35A-30oyAiPiqA
 ```
 
-`channel/<id>` URL'si doğrudan kullanılır. `@handle` URL'si, handle ile sanatçı araması yapılarak çözülür. `isim | URL` formatında URL kaynak olarak önceliklidir; isim loglarda ve katalog sıralamasında görünen etiket olarak kullanılır.
+A plain name is resolved through YouTube Music. A channel URL is used directly. In the `name | URL` format, the URL is authoritative while the name is used as the display label.
 
-Menüyle kullanmak için Windows'ta `run.bat` dosyasına çift tıklayın. Textual tabanlı arayüz OAuth durumunu, playlist özetini ve canlı işlem çıktısını gösterir. Ana ekranda `D` plan, `B` playlist oluşturma/güncelleme, `V` format doğrulama, `U` uzak doğrulama, `A` playlist editörü, `R` yenileme ve `Q` çıkış tuşlarıdır. `Ctrl+P` native command palette'i açar; ana işlemler ve Textual komutları buradan aranabilir. `V` ağ kullanmaz; güvenli duplicate silme planını gösterir. `U` API kullandığı için arayüzü geçici olarak kapatır, terminalde uzak doğrulama ve onay akışını çalıştırır. `Ctrl+Left` / `Ctrl+Right` sol paneli daraltır/genişletir, `Ctrl+0` varsayılan boyuta döner. Editörde `N` yeni playlist, `M` ad değiştirme, `P` playlist dosyası silme, `A` sanatçı ekleme, `E` düzenleme, `X` sanatçı silme, `S` kaydetme ve `R` diskten yükleme kısayollarıdır; aynı `Ctrl+Left` / `Ctrl+Right` / `Ctrl+0` kısayolları playlist panelini değiştirir. Playlist adı dosyanın uzantısız adıyla aynıdır; RAW adını istiyorsanız dosyayı örneğin `METAL - RAW.txt` olarak adlandırın. Editörden silmek yalnızca yerel `.txt` dosyasını kaldırır; YouTube Music'teki mevcut playlist otomatik silinmez. OAuth düğmesi, bloklayan Google akışı için arayüzü geçici olarak kapatır ve işlem bitince yeniden açar. Windows TUI'sinde mouse desteği yalnızca tıklama ve tekerlek olaylarını raporlar; pasif mouse hareketleri izlenmez. Terminalden aynı arayüz `.venv\Scripts\python.exe build_playlists.py --tui` ile açılır.
+The filename becomes the playlist name:
 
-Tekrar çalıştırmak güvenlidir. `append_only` modu yeni parçaları ekler; YouTube Music'te manuel sildiğiniz parçaları state üzerinden geri eklemez. `state/build_state.json` çalışma durumunu, `logs/build.jsonl` olayları tutar; bu dosyalar Git'e alınmaz.
+```text
+artists/METAL - RAW.txt
+```
 
-Sanatçı çözümleme sonuçları `state/build_state.json` içindeki `artist_aliases` alanında tutulur. `artist_cache_ttl_days` varsayılan olarak 30 gündür; `0` değeri kalıcı alias cache'ini devre dışı bırakır. Aynı playlistte aynı normalize edilmiş girdi veya aynı çözümlenmiş `channel_id` tekrar gelirse ikinci katalog çağrısı atlanır; farklı playlistlerde aynı sanatçı tutulur, ancak katalog verisi build boyunca bellekte paylaşılır. `--validate-format` ağ kullanmaz; `--validate-remote` API kullanır ancak ne `state/build_state.json` ne de `cache/` içine kalıcı cache yazar. Remote validator'ın varsa kullandığı çözümleme cache'i yalnızca komut süresince bellektedir. Her iki validator da TXT dosyalarını yalnızca kullanıcı onayından sonra değiştirir; normal build akışı validator çalıştırmaz ve TXT dosyalarına yazmaz.
+## Recommended Workflow
 
-Eski config dosyalarında bulunan `playlist.max_tracks` satırı artık kullanılmıyor; silinebilir.
+Validate local formatting first:
 
-Test: `python -m pytest --basetemp=work/pytest-tmp`.
+```powershell
+.\.venv\Scripts\python.exe build_playlists.py --validate-format
+```
 
-## Dizinler
+This check does not use the network. Any file changes require confirmation.
 
-- `artists/`: Playlist adını ve sanatçı listesini taşıyan `.txt` dosyaları
-- `src/`: Uygulama kodu
-- `tests/`: Testler
-- `state/`: Yerel çalışma durumu; Git'e alınmaz
-- `cache/`: Gelecekte kullanılabilecek yerel cache dizini; mevcut build ve validator akışı kalıcı katalog cache'i yazmaz
-- `logs/`: Çalışma logları; Git'e alınmaz
-- `docs/`: Proje dokümantasyonu
+Preview the remote build plan:
+
+```powershell
+.\.venv\Scripts\python.exe build_playlists.py --dry-run
+```
+
+`--dry-run` does not create or update playlists, but it may resolve artists and collect catalog data through the YouTube Music API. OAuth and network access are therefore required.
+
+Optionally validate artist resolution and remote duplicates:
+
+```powershell
+.\.venv\Scripts\python.exe build_playlists.py --validate-remote
+```
+
+This command uses the YouTube Music API and asks for confirmation before changing artist files.
+
+Build or update the playlists:
+
+```powershell
+.\.venv\Scripts\python.exe build_playlists.py
+```
+
+## Terminal Interface
+
+Start the interactive interface with:
+
+```powershell
+.\.venv\Scripts\python.exe build_playlists.py --tui
+```
+
+You can also double-click `run.bat` on Windows.
+
+Main shortcuts:
+
+| Key | Action |
+| --- | --- |
+| `D` | Show the current plan |
+| `B` | Build or update playlists |
+| `V` | Validate local artist files |
+| `U` | Validate artists remotely |
+| `A` | Open the playlist editor |
+| `R` | Reload data |
+| `Q` | Quit |
+| `Ctrl+P` | Open the command palette |
+
+The playlist editor also supports creating, renaming, editing, deleting, and saving artist lists.
+
+## Playlist Behavior
+
+The default configuration uses private playlists and `append_only` updates.
+
+The builder can be run repeatedly. Local state is stored in:
+
+```text
+state/build_state.json
+```
+
+The state file tracks playlist IDs, generated tracks, manually removed tracks, and artist aliases. In `append_only` mode, tracks manually removed from YouTube Music are not automatically added again.
+
+Build events are written to:
+
+```text
+logs/build.jsonl
+```
+
+These files are local runtime data and are excluded from version control.
+
+## Project Layout
+
+```text
+artists/       Artist lists and playlist targets
+src/           Application code
+tests/         Automated tests
+state/         Local build state
+cache/         Temporary cache data
+logs/          Build logs
+docs/          Additional project documentation
+```
+
+## Testing
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest --basetemp=work/pytest-tmp
+```
+
+## Configuration Notes
+
+The current configuration uses:
+
+```yaml
+playlist:
+  privacy: PRIVATE
+  update_mode: append_only
+```
+
+The old `playlist.max_tracks` setting is no longer used and can be removed from older configuration files.

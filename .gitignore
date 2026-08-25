@@ -43,6 +43,9 @@ logs/*
 work/
 outputs/
 
+# Graphify generated reports and graph artifacts
+graphify-out/
+
 # Editor and OS files
 .vscode/
 .idea/
