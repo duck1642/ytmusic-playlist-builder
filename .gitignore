@@ -45,6 +45,7 @@ logs/*
 # Codex/project-local working data
 work/
 outputs/
+WALKTHROUGH.md
 
 # Graphify generated reports and graph artifacts
 graphify-out/
