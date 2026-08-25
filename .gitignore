@@ -31,6 +31,9 @@ headers*.json
 # Local configuration
 config.yaml
 
+# Personal artist lists
+artists/*.txt
+
 # Generated project data
 state/*
 !state/.gitkeep

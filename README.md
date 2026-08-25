@@ -54,7 +54,7 @@ Never commit or share files from `auth/`. The directory is excluded by `.gitigno
 
 ## Artist Files
 
-Artist lists are stored as text files under `artists/`.
+Artist lists are stored as local text files under `artists/`. These `.txt` files are intentionally ignored by Git so personal lists are not committed accidentally. See [`artists/README.md`](artists/README.md) for the local file format.
 
 Supported formats:
 
@@ -164,6 +164,14 @@ docs/          Additional project documentation
 ```
 
 ## Testing
+
+Install the development and test dependencies:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+```
+
+Run the test suite:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest --basetemp=work/pytest-tmp
