@@ -178,3 +178,7 @@ playlist:
 ```
 
 The old `playlist.max_tracks` setting is no longer used and can be removed from older configuration files.
+
+## Development Note
+
+This project was human-directed and developed with substantial AI coding assistance. Product direction, design decisions, code review, and release preparation were led by me.
